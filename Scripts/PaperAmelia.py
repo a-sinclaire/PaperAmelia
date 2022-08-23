@@ -316,57 +316,65 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
 
     similarity_counter = 0
 
-    # iterations determines how many layers we will operate on, if iterations is greater than the number of layers
-    # then we loop back and conduct another round of optimizations on the layers again
-    # TODO: iterations should probably be the num of times we loop through all the layers?
+    # iterations determines how many times we optimize
+    # items can effect each other's performance on some axes, so optimizing more than once may be necessary sometimes
+    # We break out early if we converge, so it doesn't matter how high you put this number (but don't have it too low)
     for i in range(iterations):
-        # layer_op is the layer we will operate on (determined by i % num_layers)
-        layer_op = (i % (num_layers - 1)) + 1
-        item_op_offset = 0
-        if rand:  # if rand we apply an offset so that we don't always begin optimizations on the first layer
-            r = random.randrange(0, (num_layers - 1))
-            layer_op = ((i+r) % (num_layers - 1)) + 1
-            # we also apply an offset to where we start in the list of clothes (but we still go in order)
-            item_op_offset = random.randrange(0, num_items[layer_op] + 1)
+        for l in range(num_layers):
+            if l == 0:  # skip over layer 0
+                continue
+            # layer_op is the layer we will operate on
+            layer_op = l
+            item_op_offset = 0
+            # rand may be useful if we are trying to optimize on multiple axes one day, but rn it is pointless
+            if rand:
+                r = random.randrange(0, (num_layers - 1))
+                # leaving this garbage comment below bc I may need it eventually if I try using rand again
+                # layer_op = ((i+r) % (num_layers - 1)) + 1  # think some weirdness here is to avoid layer 0
+                # if rand we apply an offset so that we don't always begin optimizations on the 0th layer
+                layer_op = (l+r) % num_layers
+                # we also apply an offset to where we start in the list of clothes (but we still go in order)
+                item_op_offset = random.randrange(0, num_items[layer_op] + 1)
 
-        improved = False
-        # go through each item on this layer
-        for j in range(num_items[layer_op] + 1):
-            # item_op is the item we will test if it makes an improvement (determined by j % num_items in this layer)
-            item_op = ((j+item_op_offset) % (num_items[layer_op] + 1))
-            # minor shuffle turns off everything in this layer, and turns on the specified item index (item_op)
-            new_outfit = minor_shuffle(context, layer_op, item_op, deepcopy(context['outfit']))  # deepcopy array
-            stats = calc_stats(context, new_outfit)
-            # we now calculate the score of this altered outfit after this one item of clothing has been changed
-            new_score = stats[OP_AXIS]
+            improved = False
+            # go through each item on this layer
+            for j in range(num_items[layer_op] + 1):
+                # item_op is the item we will test makes an improvement (determined by j % num_items in this layer)
+                item_op = ((j+item_op_offset) % (num_items[layer_op] + 1))
+                # minor shuffle turns off everything in this layer, and turns on the specified item index (item_op)
+                new_outfit = minor_shuffle(context, layer_op, item_op, deepcopy(context['outfit']))  # deepcopy array
+                stats = calc_stats(context, new_outfit)
+                # we now calculate the score of this altered outfit after this one item of clothing has been changed
+                new_score = stats[OP_AXIS]
 
-            # if new_score is better than best_score, new_score is the new best_score
-            # (takes into account if we are trying to maximize or minimize the score
-            if (OP_AXIS_MAX and new_score > best_score) or (not OP_AXIS_MAX and new_score < best_score):
-                best_score = new_score
+                # if new_score is better than best_score, new_score is the new best_score
+                # (takes into account if we are trying to maximize or minimize the score
+                if (OP_AXIS_MAX and new_score > best_score) or (not OP_AXIS_MAX and new_score < best_score):
+                    best_score = new_score
 
-                # if the new_outfit is an improvement, then set the current real outfit to this improved outfit
-                context['outfit'] = deepcopy(new_outfit)  # copy outfit array just to be safe
+                    # if the new_outfit is an improvement, then set the current real outfit to this improved outfit
+                    context['outfit'] = deepcopy(new_outfit)  # copy outfit array just to be safe
 
-                # draw this new better outfit on screen (shows user incremental progress everytime there is improvement)
-                display(context, drawing_context)
-                pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
-                pygame.display.update()
-                improved = True
+                    # draw this new better outfit on screen
+                    # (shows user incremental progress everytime there is improvement)
+                    display(context, drawing_context)
+                    pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
+                    pygame.display.update()
+                    improved = True
 
-        # after going through every item in the layer, if no improvements were found, add 1 to the similarity
-        if not improved:
-            similarity_counter += 1
-        else:
-            similarity_counter = 0  # if it differs, reset similarity to 0
+            # after going through every item in the layer, if no improvements were found, add 1 to the similarity
+            if not improved:
+                similarity_counter += 1
+            else:
+                similarity_counter = 0  # if it differs, reset similarity to 0
 
-        # set active items to match whatever our new outfit is
-        set_active_from_current(context)
+            # set active items to match whatever our new outfit is
+            set_active_from_current(context)
 
-        # if the similarity counter reaches a certain threshold (we have had the same outfit for so many iterations
-        # without any improvements) then we stop searching and say we are optimized (just return)
-        if similarity_counter >= num_layers * 3:
-            return
+            # if the similarity counter reaches a certain threshold (we have had the same outfit for so many iterations
+            # without any improvements) then we stop searching and say we are optimized (just return)
+            if similarity_counter >= num_layers * 3:
+                return
     return
 
 
@@ -733,7 +741,7 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                 context = major_optimize(context, drawing_context, optimization_context, 1000)
             # optimize on the axis systematically
             if event.key == pygame.K_n:
-                context = minor_optimize(context, drawing_context, optimization_context, 300)
+                context = minor_optimize(context, drawing_context, optimization_context, 50)
             # lock the current layer
             if event.key == pygame.K_l:
                 locked[active_layer] = True
