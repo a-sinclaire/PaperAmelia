@@ -84,7 +84,11 @@ def initialize():
         "dirname": dirname
     }
 
-    overlay_toggles = SHOW_GUI, SHOW_HELP, SHOW_STATS
+    overlay_toggles = {
+        "SHOW_GUI": SHOW_GUI,
+        "SHOW_HELP": SHOW_HELP,
+        "SHOW_STATS": SHOW_STATS
+    }
     drawing_context = screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key
     optimization_context = OP_AXIS, OP_AXIS_MAX
     return context, overlay_toggles, drawing_context, optimization_context
@@ -199,7 +203,7 @@ def major_optimize(context, drawing_context, optimization_context, axis, max_ite
     return context
 
 
-def multi_opt(context, overlay_toggles, drawing_context, optimization_context, axis_array, iterations):
+def multi_opt(context, drawing_context, optimization_context, axis_array, iterations):
     # axis_key = ['total_coverage', 'weight', 'avg_thickness', 'avg_breathability', 'waterproof', 'avg_brightness', 'sportiness', 'formality', 'loungeablity', 'warmth']
     # ex. winter condition
     # axis_array_weights = [0.9, 0.5, 0.8, 0.4, 0.2, 0.6, 0.1, 0.0, 0.15, 0.99]
@@ -415,6 +419,7 @@ def display(context, drawing_context, alt_outfit=None):
 
 
 def draw_overlay(context, overlay_toggles, drawing_context):
+    # context
     df = context['dataframe']
     # these won't be modified
     outfit = context['outfit']
@@ -424,7 +429,12 @@ def draw_overlay(context, overlay_toggles, drawing_context):
     num_items = context['num_items']
     dirname = context['dirname']
 
-    SHOW_GUI, SHOW_HELP, SHOW_STATS = overlay_toggles
+    # toggle overlays context
+    # these won't be modified
+    SHOW_GUI = overlay_toggles["SHOW_GUI"]
+    SHOW_HELP = overlay_toggles["SHOW_HELP"]
+    SHOW_STATS = overlay_toggles["SHOW_STATS"]
+
     screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key = drawing_context
 
     if SHOW_HELP:
@@ -504,6 +514,7 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
     :param context: may alter SHOW_GUI, SHOW_HELP, SHOW_STATS, active_layer, active_item, locked, df, outfit
     :return: 
     """
+    # context
     df = context['dataframe']
     outfit = context['outfit']
     active_layer = context['active_layer']
@@ -513,9 +524,13 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
     num_items = context['num_items']
     dirname = context['dirname']
 
+    # toggle overlays context
+    SHOW_GUI = overlay_toggles["SHOW_GUI"]
+    SHOW_HELP = overlay_toggles["SHOW_HELP"]
+    SHOW_STATS = overlay_toggles["SHOW_STATS"]
+
     num_layers = layer_info_df.shape[0]
 
-    SHOW_GUI, SHOW_HELP, SHOW_STATS = overlay_toggles
     OP_AXIS, OP_AXIS_MAX = optimization_context
 
     for event in pygame.event.get():
@@ -527,6 +542,7 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
             # toggle GUI overlay
             if event.key == pygame.K_g:
                 SHOW_GUI = not SHOW_GUI
+                overlay_toggles["SHOW_GUI"] = SHOW_GUI
             # if GUI enabled
             if SHOW_GUI:
                 # move left a layer
@@ -610,9 +626,11 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
             # toggle help overlay
             if event.key == pygame.K_h:
                 SHOW_HELP = not SHOW_HELP
+                overlay_toggles["SHOW_HELP"] = SHOW_HELP
             # toggle stats overlay
             if event.key == pygame.K_t:
                 SHOW_STATS = not SHOW_STATS
+                overlay_toggles["SHOW_STATS"] = SHOW_STATS
             # randomize the current outfit (ignoring locked layers)
             if event.key == pygame.K_r:
                 outfit = shuffle(context)
@@ -670,7 +688,6 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                                 break
                     pygame.display.update()
                     clock.tick(FPS)
-    overlay_toggles = SHOW_GUI, SHOW_HELP, SHOW_STATS
     return context, overlay_toggles
 
 
