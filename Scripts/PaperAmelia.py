@@ -102,7 +102,10 @@ def initialize():
         "axis_key": axis_key
     }
 
-    optimization_context = OP_AXIS, OP_AXIS_MAX
+    optimization_context = {
+        "OP_AXIS": OP_AXIS,
+        "OP_AXIS_MAX": OP_AXIS_MAX
+    }
     return context, overlay_toggles, drawing_context, optimization_context
 
 
@@ -176,7 +179,10 @@ def major_optimize(context, drawing_context, optimization_context, axis, max_ite
     WIDTH = drawing_context['WIDTH']
     HEIGHT = drawing_context['HEIGHT']
 
-    OP_AXIS, OP_AXIS_MAX = optimization_context
+    # optimization context
+    OP_AXIS = optimization_context["OP_AXIS"]
+    OP_AXIS_MAX = optimization_context["OP_AXIS_MAX"]
+
     pygame.draw.circle(screen, (255, 0, 0), (WIDTH - 20, 20), 10)
     pygame.display.update()
 
@@ -253,7 +259,10 @@ def minor_optimize(context, drawing_context, optimization_context, axis, iterati
     WIDTH = drawing_context['WIDTH']
     HEIGHT = drawing_context['HEIGHT']
 
-    OP_AXIS, OP_AXIS_MAX = optimization_context
+    # optimization context
+    OP_AXIS = optimization_context["OP_AXIS"]
+    OP_AXIS_MAX = optimization_context["OP_AXIS_MAX"]
+
     num_layers = layer_info_df.shape[0]
 
     pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
@@ -583,9 +592,11 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
     my_font = drawing_context['my_font']
     axis_key = drawing_context['axis_key']
 
-    num_layers = layer_info_df.shape[0]
+    # optimization context
+    OP_AXIS = optimization_context["OP_AXIS"]
+    OP_AXIS_MAX = optimization_context["OP_AXIS_MAX"]
 
-    OP_AXIS, OP_AXIS_MAX = optimization_context
+    num_layers = layer_info_df.shape[0]
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE) or (
@@ -733,10 +744,13 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                         if event.type == pygame.KEYDOWN:
                             if event.key == pygame.K_RIGHT:
                                 OP_AXIS = ((OP_AXIS + 1) % len(axis_key))
+                                optimization_context["OP_AXIS"] = OP_AXIS
                             if event.key == pygame.K_LEFT:
                                 OP_AXIS = ((OP_AXIS - 1) % len(axis_key))
+                                optimization_context["OP_AXIS"] = OP_AXIS
                             if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
                                 OP_AXIS_MAX = not OP_AXIS_MAX
+                                optimization_context["OP_AXIS_MAX"] = OP_AXIS_MAX
                             if event.key == pygame.K_o or event.key == pygame.K_RETURN:
                                 in_menu = False
                                 break
