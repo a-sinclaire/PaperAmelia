@@ -251,7 +251,6 @@ def major_optimize(context, drawing_context, optimization_context, max_iteration
                 active_item[l] = a
                 context['active_item'] = active_item
     context['outfit'] = outfit
-    return context
 
 
 def multi_opt(context, drawing_context, optimization_context, axis_array, iterations):
@@ -276,7 +275,6 @@ def multi_opt(context, drawing_context, optimization_context, axis_array, iterat
         optimization_context['OP_AXIS'] = index_array[ind[0]]
         optimization_context['OP_AXIS_MAX'] = axis_array_maxs[ind[0]]
         context = minor_optimize(context, drawing_context, optimization_context, 1, rand=True)
-    return context
 
 
 def minor_optimize(context, drawing_context, optimization_context, iterations, rand=False):
@@ -372,7 +370,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
                     if outfit[l][a]:
                         active_item[l] = a
                         context['active_item'] = active_item
-            return context
+            return
     # assign the best found outfit to be current outfit
     outfit = deepcopy(save_outfit)
     # this stuff (for loop) just sets the active items to be the same as what is on the current outfit
@@ -384,7 +382,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
 
     # save the outfit we found to be the current outfit in the context
     context['outfit'] = outfit
-    return context
+    return
 
 
 def calc_stats(context, alt_outfit=None):
@@ -605,12 +603,6 @@ def draw_overlay(context, overlay_toggles, drawing_context):
 
 
 def check_events(context, overlay_toggles, drawing_context, optimization_context):
-    """
-    input: SHOW_GUI, SHOW_HELP, SHOW_STATS, active_layer, max)layer, outfit, num_layers, df, num_items, SCALE, active_item, OP_AXIS, OP_AXIS_MAX, my_font, screen, clock
-    output: SHOW_GUI, SHOW_HELP, SHOW_STATS, active_layer, active_item, outfit
-    :param context: may alter SHOW_GUI, SHOW_HELP, SHOW_STATS, active_layer, active_item, locked, df, outfit
-    :return: 
-    """
     # context
     df = context['dataframe']
     outfit = context['outfit']
@@ -802,7 +794,6 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                                 break
                     pygame.display.update()
                     clock.tick(FPS)
-    return context, overlay_toggles
 
 
 if __name__ == '__main__':
@@ -814,7 +805,7 @@ if __name__ == '__main__':
     # GAME LOOP
     while True:
         # user input
-        context, overlay_toggles = check_events(context, overlay_toggles, drawing_context, optimization_context)
+        check_events(context, overlay_toggles, drawing_context, optimization_context)
         # draw outfit
         display(context, drawing_context)
         # draw overlays
