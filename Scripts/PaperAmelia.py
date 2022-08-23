@@ -73,20 +73,34 @@ def initialize():
     # append column for sprites to the clothes dataframe
     df = df.assign(Sprite=sprites)
 
-    context = df, outfit, active_layer, active_item, num_items, locked, dirname
+    # context = df, outfit, active_layer, active_item, num_items, locked, dirname
+    context = {
+        "dataframe": df,
+        "outfit": outfit,
+        "active_layer": active_layer,
+        "active_item": active_item,
+        "num_items": num_items,
+        "locked": locked,
+        "dirname": dirname
+    }
+
     overlay_toggles = SHOW_GUI, SHOW_HELP, SHOW_STATS
     drawing_context = screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key
     optimization_context = OP_AXIS, OP_AXIS_MAX
     return context, overlay_toggles, drawing_context, optimization_context
 
 
-def shuffle(context, outfit_outfit=None):
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+def shuffle(context, alt_outfit=None):
+    # these won't be modified
+    outfit = context['outfit']
+    locked = context['locked']
+    num_items = context['num_items']
+
     num_layers = layer_info_df.shape[0]
     
     working_outfit = outfit
-    if outfit_outfit is not None:
-        working_outfit = outfit_outfit
+    if alt_outfit is not None:
+        working_outfit = alt_outfit
     # randomize
     for l in range(num_layers):
         if locked[l]:
@@ -106,7 +120,11 @@ def shuffle(context, outfit_outfit=None):
 
 
 def minor_shuffle(context, z, k, s=None):
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+    # these won't be modified
+    outfit = context['outfit']
+    locked = context['locked']
+    num_items = context['num_items']
+
     if locked[z]:
         return
     outfit_copy = deepcopy(outfit)
@@ -131,7 +149,9 @@ def minor_shuffle(context, z, k, s=None):
 
 
 def major_optimize(context, drawing_context, optimization_context, axis, max_iterations, max=True):
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+    outfit = context['outfit']
+    active_item = context['active_item']
+
     OP_AXIS, OP_AXIS_MAX = optimization_context
     pygame.draw.circle(screen, (255, 0, 0), (WIDTH - 20, 20), 10)
     pygame.display.update()
@@ -152,7 +172,7 @@ def major_optimize(context, drawing_context, optimization_context, axis, max_ite
                 max_score = new_score
                 save_outfit = deepcopy(new_outfit)
                 outfit = deepcopy(save_outfit)
-                context = df, outfit, active_layer, active_item, num_items, locked, dirname
+                context['outfit'] = outfit
                 display(context, drawing_context)
                 pygame.draw.circle(screen, (255, 0, 0), (WIDTH - 20, 20), 10)
                 pygame.display.update()
@@ -162,7 +182,7 @@ def major_optimize(context, drawing_context, optimization_context, axis, max_ite
                 max_score = new_score
                 save_outfit = deepcopy(new_outfit)
                 outfit = deepcopy(save_outfit)
-                context = df, outfit, active_layer, active_item, num_items, locked, dirname
+                context['outfit'] = outfit
                 display(context, drawing_context)
                 pygame.draw.circle(screen, (255, 0, 0), (WIDTH - 20, 20), 10)
                 pygame.display.update()
@@ -174,7 +194,8 @@ def major_optimize(context, drawing_context, optimization_context, axis, max_ite
         for a in range(len(outfit[l])):
             if outfit[l][a]:
                 active_item[l] = a
-    context = df, outfit, active_layer, active_item, num_items, locked, dirname
+                context['active_item'] = active_item
+    context['outfit'] = outfit
     return context
 
 
@@ -195,7 +216,11 @@ def multi_opt(context, overlay_toggles, drawing_context, optimization_context, a
 
 
 def minor_optimize(context, drawing_context, optimization_context, axis, iterations, max=True, rand=False):
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+    outfit = context['outfit']
+    active_item = context['active_item']
+    # these won't be modified
+    num_items = context['num_items']
+
     OP_AXIS, OP_AXIS_MAX = optimization_context
     num_layers = layer_info_df.shape[0]
 
@@ -229,7 +254,7 @@ def minor_optimize(context, drawing_context, optimization_context, axis, iterati
                     max_score = new_score
                     save_outfit = deepcopy(new_outfit)
                     outfit = deepcopy(new_outfit)
-                    context = df, outfit, active_layer, active_item, num_items, locked, dirname
+                    context['outfit'] = outfit
                     display(context, drawing_context)
                     pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
                     pygame.display.update()
@@ -238,7 +263,7 @@ def minor_optimize(context, drawing_context, optimization_context, axis, iterati
                     max_score = new_score
                     save_outfit = deepcopy(new_outfit)
                     outfit = deepcopy(new_outfit)
-                    context = df, outfit, active_layer, active_item, num_items, locked, dirname
+                    context['outfit'] = outfit
                     display(context, drawing_context)
                     pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
                     pygame.display.update()
@@ -247,12 +272,11 @@ def minor_optimize(context, drawing_context, optimization_context, axis, iterati
         else:
             similarity_counter = 0
         if similarity_counter >= num_layers * 3:
-            # print("CONVERGED!")
             for l in range(len(outfit)):
                 for a in range(len(outfit[l])):
                     if outfit[l][a]:
                         active_item[l] = a
-            context = df, outfit, active_layer, active_item, num_items, locked, dirname
+                        context['active_item'] = active_item
             return context
     # assign the best found outfit to be current outfit
     outfit = deepcopy(save_outfit)
@@ -260,7 +284,8 @@ def minor_optimize(context, drawing_context, optimization_context, axis, iterati
         for a in range(len(outfit[l])):
             if outfit[l][a]:
                 active_item[l] = a
-    context = df, outfit, active_layer, active_item, num_items, locked, dirname
+                context['outfit'] = outfit
+    context['outfit'] = outfit
     return context
 
 
@@ -269,13 +294,16 @@ def map_range(input, in_min, in_max, out_min, out_max):
     return out_min + slope * (input - in_min)
 
 
-def calc_stats(context, outfit_outfit=None):
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+def calc_stats(context, alt_outfit=None):
+    df = context['dataframe']
+    # these won't be modified
+    outfit = context['outfit']
+
     num_layers = layer_info_df.shape[0]
     
     working_outfit = outfit
-    if outfit_outfit is not None:
-        working_outfit = outfit_outfit
+    if alt_outfit is not None:
+        working_outfit = alt_outfit
     n_clothes = 0
     total_coverage = 0
     weight = 0
@@ -333,28 +361,43 @@ def calc_stats(context, outfit_outfit=None):
     loungeablity, warmth)
 
 
-def display(context, drawing_context, outfit_outfit=None):
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+def display(context, drawing_context, alt_outfit=None):
+    """
+    :param context: df, outfit, num_items
+    :param drawing_context: screen
+    :param temp_outfit: optional - can specify an outfit other than the active one to draw
+    :return: None
+    """
+    df = context['dataframe']
+    # these won't be modified
+    outfit = context['outfit']
+    num_items = context['num_items']
+    dirname = context['dirname']
+
     screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key = drawing_context
+
     num_layers = layer_info_df.shape[0]
-    
-    # needs outfit, num_layers, num_items, df
-    working_outfit = outfit
-    if outfit_outfit is not None:
-        working_outfit = outfit_outfit
+
+    # working outfit is the outfit we will draw
+    working_outfit = outfit  # by default, it is our current outfit
+    if alt_outfit is not None:  # if a different outfit is specified we draw that instead
+        working_outfit = alt_outfit
+
+    # draw BG
     screen.blit(BACKGROUND_IMG, (0, 0))  # draw BG
 
     # display character
     for layer in range(num_layers):
+        # if there are no items in this layer continue
         if num_items[layer] == 0:
             continue
-        # if the layer we are currently processing is not the layer we are editing
-        # and if all items in this layer are off skip
-        # if layer != active_layer and not outfit[layer][active_item[layer]]:
-        #     continue
-        items_in_layer = df[df.layer == layer]  # all items in this layer
 
-        # draw all items that are TURNED ON (in the process layer)
+        # get a list (pandas) of all items in this layer
+        items_in_layer = df[df.layer == layer]
+
+        # Go through each item in this layer...
+        # if this item is turned on, then draw it
+        # (we render to the buffer, but no flip occurs in this function)
         for i in range(len(working_outfit[layer])):
             if working_outfit[layer][i]:
                 row = items_in_layer.iloc[i]
@@ -367,13 +410,23 @@ def display(context, drawing_context, outfit_outfit=None):
                     # add the sprite to the actual dataframe
                     real_row_index = df.index[df['img_name'] == row['img_name']].tolist()[0]
                     df.at[real_row_index, 'Sprite'] = s
+                    context['dataframe'] = df
                 screen.blit(row['Sprite'], (row['x'], row['y']))
 
 
 def draw_overlay(context, overlay_toggles, drawing_context):
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+    df = context['dataframe']
+    # these won't be modified
+    outfit = context['outfit']
+    active_layer = context['active_layer']
+    active_item = context['active_item']
+    locked = context['locked']
+    num_items = context['num_items']
+    dirname = context['dirname']
+
     SHOW_GUI, SHOW_HELP, SHOW_STATS = overlay_toggles
     screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key = drawing_context
+
     if SHOW_HELP:
         help_text = ['x -> remove all items on layer',
                      'CTRL+X -> remove all items',
@@ -439,6 +492,7 @@ def draw_overlay(context, overlay_toggles, drawing_context):
                 # add the sprite to the actual dataframe
                 real_row_index = df.index[df['img_name'] == row['img_name'].values[0]].tolist()[0]
                 df.at[real_row_index, 'Sprite'] = s
+                context['dataframe'] = df
             # draw the item preview to the left of the model
             screen.blit(row['Sprite'].values[0], (row['x'].values[0] - (WIDTH * 0.3), row['y'].values[0]))
 
@@ -447,10 +501,18 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
     """
     input: SHOW_GUI, SHOW_HELP, SHOW_STATS, active_layer, max)layer, outfit, num_layers, df, num_items, SCALE, active_item, OP_AXIS, OP_AXIS_MAX, my_font, screen, clock
     output: SHOW_GUI, SHOW_HELP, SHOW_STATS, active_layer, active_item, outfit
-    :param context: 
+    :param context: may alter SHOW_GUI, SHOW_HELP, SHOW_STATS, active_layer, active_item, locked, df, outfit
     :return: 
     """
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
+    df = context['dataframe']
+    outfit = context['outfit']
+    active_layer = context['active_layer']
+    active_item = context['active_item']
+    locked = context['locked']
+    # these won't be modified
+    num_items = context['num_items']
+    dirname = context['dirname']
+
     num_layers = layer_info_df.shape[0]
 
     SHOW_GUI, SHOW_HELP, SHOW_STATS = overlay_toggles
@@ -472,32 +534,38 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                     active_layer = active_layer - 1
                     if active_layer < 1:
                         active_layer = 1
+                    context['active_layer'] = active_layer
                 # move right a layer
                 if event.key == pygame.K_RIGHT and SHOW_GUI:
                     active_layer = active_layer + 1
                     if active_layer > (num_layers - 1):
                         active_layer = (num_layers - 1)
+                    context['active_layer'] = active_layer
                 # move up an item
                 if event.key == pygame.K_UP and SHOW_GUI:
                     if num_items[active_layer] == 0:
                         break
                     active_item[active_layer] += 1
                     active_item[active_layer] = active_item[active_layer] % num_items[active_layer]
+                    context['active_item'] = active_item
                 #  move down an item
                 if event.key == pygame.K_DOWN and SHOW_GUI:
                     if num_items[active_layer] == 0:
                         break
                     active_item[active_layer] -= 1
                     active_item[active_layer] = active_item[active_layer] % num_items[active_layer]
+                    context['active_item'] = active_item
                 # toggle item on/off
                 if event.key == pygame.K_RETURN and SHOW_GUI:
                     outfit[active_layer][active_item[active_layer]] = not outfit[active_layer][active_item[active_layer]]
+                    context['outfit'] = outfit
                 # turn off all items in current layer
                 if event.key == pygame.K_x:
                     copy = outfit[active_layer]
                     for x in range(len(copy)):
                         copy[x] = False
                     outfit[active_layer] = copy
+                    context['outfit'] = outfit
             # turn off ALL items
             if event.key == pygame.K_x and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 for l in range(num_layers):
@@ -507,6 +575,7 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                     for x in range(len(copy)):
                         copy[x] = False
                     outfit[l] = copy
+                    context['outfit'] = outfit
             # take a screenshot
             if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 print("SCREENSHOT")
@@ -533,9 +602,11 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                             # add the sprite to the actual dataframe
                             real_row_index = df.index[df['img_name'] == row['img_name']].tolist()[0]
                             df.at[real_row_index, 'Sprite'] = s
+                context['dataframe'] = df
             # hide base
             if event.key == pygame.K_y:
                 outfit[0][0] = not outfit[0][0]
+                context['outfit'] = outfit
             # toggle help overlay
             if event.key == pygame.K_h:
                 SHOW_HELP = not SHOW_HELP
@@ -545,29 +616,28 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
             # randomize the current outfit (ignoring locked layers)
             if event.key == pygame.K_r:
                 outfit = shuffle(context)
-                context = df, outfit, active_layer, active_item, num_items, locked, dirname
                 for l in range(len(outfit)):
                     for a in range(len(outfit[l])):
                         if outfit[l][a]:
                             active_item[l] = a
+                context['outfit'] = outfit
+                context['active_item'] = active_item
             # optimize on the axis randomly
             if event.key == pygame.K_m:
                 context = major_optimize(context, drawing_context, optimization_context, OP_AXIS, 1000, OP_AXIS_MAX)
-                df, outfit, active_layer, active_item, num_items, locked, dirname = context
             # optimize on the axis systematically
             if event.key == pygame.K_n:
                 context = minor_optimize(context, drawing_context, optimization_context, OP_AXIS, 300, OP_AXIS_MAX)
-                df, outfit, active_layer, active_item, num_items, locked, dirname = context
-                # multi_opt(None, 100)
             # lock the current layer
             if event.key == pygame.K_l:
                 locked[active_layer] = True
+                context['locked'] = locked
             # unlock current layer
             if event.key == pygame.K_u:
                 locked[active_layer] = False
+                context['locked'] = locked
             # open optimization menu
             if event.key == pygame.K_o:
-                context = df, outfit, active_layer, active_item, num_items, locked, dirname
                 # optimization menu
                 in_menu = True
                 while in_menu:
@@ -600,14 +670,12 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                                 break
                     pygame.display.update()
                     clock.tick(FPS)
-    context = df, outfit, active_layer, active_item, num_items, locked, dirname
     overlay_toggles = SHOW_GUI, SHOW_HELP, SHOW_STATS
     return context, overlay_toggles
 
 
 if __name__ == '__main__':
     context, overlay_toggles, drawing_context, optimization_context = initialize()
-    df, outfit, active_layer, active_item, num_items, locked, dirname = context
     screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key = drawing_context
     # GAME LOOP
     while True:
