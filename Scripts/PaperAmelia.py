@@ -73,7 +73,6 @@ def initialize():
     # append column for sprites to the clothes dataframe
     df = df.assign(Sprite=sprites)
 
-    # context = df, outfit, active_layer, active_item, num_items, locked, dirname
     context = {
         "dataframe": df,
         "outfit": outfit,
@@ -81,7 +80,8 @@ def initialize():
         "active_item": active_item,
         "num_items": num_items,
         "locked": locked,
-        "dirname": dirname
+        "dirname": dirname,
+        "layer_info_df": layer_info_df
     }
 
     overlay_toggles = {
@@ -89,7 +89,19 @@ def initialize():
         "SHOW_HELP": SHOW_HELP,
         "SHOW_STATS": SHOW_STATS
     }
-    drawing_context = screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key
+
+    drawing_context = {
+        "screen": screen,
+        "clock": clock,
+        "FPS": FPS,
+        "SCALE": SCALE,
+        "BACKGROUND_IMG": BACKGROUND_IMG,
+        "WIDTH": WIDTH,
+        "HEIGHT": HEIGHT,
+        "my_font": my_font,
+        "axis_key": axis_key
+    }
+
     optimization_context = OP_AXIS, OP_AXIS_MAX
     return context, overlay_toggles, drawing_context, optimization_context
 
@@ -99,6 +111,7 @@ def shuffle(context, alt_outfit=None):
     outfit = context['outfit']
     locked = context['locked']
     num_items = context['num_items']
+    layer_info_df = context['layer_info_df']
 
     num_layers = layer_info_df.shape[0]
     
@@ -153,8 +166,15 @@ def minor_shuffle(context, z, k, s=None):
 
 
 def major_optimize(context, drawing_context, optimization_context, axis, max_iterations, max=True):
+    # context
     outfit = context['outfit']
     active_item = context['active_item']
+
+    # drawing context
+    # these won't be modified
+    screen = drawing_context['screen']
+    WIDTH = drawing_context['WIDTH']
+    HEIGHT = drawing_context['HEIGHT']
 
     OP_AXIS, OP_AXIS_MAX = optimization_context
     pygame.draw.circle(screen, (255, 0, 0), (WIDTH - 20, 20), 10)
@@ -220,10 +240,18 @@ def multi_opt(context, drawing_context, optimization_context, axis_array, iterat
 
 
 def minor_optimize(context, drawing_context, optimization_context, axis, iterations, max=True, rand=False):
+    # context
     outfit = context['outfit']
     active_item = context['active_item']
     # these won't be modified
     num_items = context['num_items']
+    layer_info_df = context['layer_info_df']
+
+    # drawing context
+    # these won't be modified
+    screen = drawing_context['screen']
+    WIDTH = drawing_context['WIDTH']
+    HEIGHT = drawing_context['HEIGHT']
 
     OP_AXIS, OP_AXIS_MAX = optimization_context
     num_layers = layer_info_df.shape[0]
@@ -302,6 +330,7 @@ def calc_stats(context, alt_outfit=None):
     df = context['dataframe']
     # these won't be modified
     outfit = context['outfit']
+    layer_info_df = context['layer_info_df']
 
     num_layers = layer_info_df.shape[0]
     
@@ -372,13 +401,19 @@ def display(context, drawing_context, alt_outfit=None):
     :param temp_outfit: optional - can specify an outfit other than the active one to draw
     :return: None
     """
+    # context
     df = context['dataframe']
     # these won't be modified
     outfit = context['outfit']
     num_items = context['num_items']
     dirname = context['dirname']
+    layer_info_df = context['layer_info_df']
 
-    screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key = drawing_context
+    # drawing context
+    # these won't be modified
+    screen = drawing_context['screen']
+    SCALE = drawing_context['SCALE']
+    BACKGROUND_IMG = drawing_context['BACKGROUND_IMG']
 
     num_layers = layer_info_df.shape[0]
 
@@ -428,6 +463,7 @@ def draw_overlay(context, overlay_toggles, drawing_context):
     locked = context['locked']
     num_items = context['num_items']
     dirname = context['dirname']
+    layer_info_df = context['layer_info_df']
 
     # toggle overlays context
     # these won't be modified
@@ -435,7 +471,13 @@ def draw_overlay(context, overlay_toggles, drawing_context):
     SHOW_HELP = overlay_toggles["SHOW_HELP"]
     SHOW_STATS = overlay_toggles["SHOW_STATS"]
 
-    screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key = drawing_context
+    # drawing context
+    # these won't be modified
+    screen = drawing_context['screen']
+    SCALE = drawing_context['SCALE']
+    WIDTH = drawing_context['WIDTH']
+    HEIGHT = drawing_context['HEIGHT']
+    my_font = drawing_context['my_font']
 
     if SHOW_HELP:
         help_text = ['x -> remove all items on layer',
@@ -523,11 +565,23 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
     # these won't be modified
     num_items = context['num_items']
     dirname = context['dirname']
+    layer_info_df = context['layer_info_df']
 
     # toggle overlays context
     SHOW_GUI = overlay_toggles["SHOW_GUI"]
     SHOW_HELP = overlay_toggles["SHOW_HELP"]
     SHOW_STATS = overlay_toggles["SHOW_STATS"]
+
+    # drawing context
+    # these won't be modified
+    screen = drawing_context['screen']
+    clock = drawing_context['clock']
+    FPS = drawing_context['FPS']
+    SCALE = drawing_context['SCALE']
+    WIDTH = drawing_context['WIDTH']
+    HEIGHT = drawing_context['HEIGHT']
+    my_font = drawing_context['my_font']
+    axis_key = drawing_context['axis_key']
 
     num_layers = layer_info_df.shape[0]
 
@@ -693,7 +747,10 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
 
 if __name__ == '__main__':
     context, overlay_toggles, drawing_context, optimization_context = initialize()
-    screen, clock, FPS, SCALE, BACKGROUND_IMG, WIDTH, HEIGHT, my_font, layer_info_df, axis_key = drawing_context
+    # drawing context
+    clock = drawing_context['clock']
+    FPS = drawing_context['FPS']
+
     # GAME LOOP
     while True:
         # user input
