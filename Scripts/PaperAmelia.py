@@ -17,6 +17,15 @@ def map_range(input, in_min, in_max, out_min, out_max):
     return out_min + slope * (input - in_min)
 
 
+def set_active_from_current(context):
+    # this stuff just sets the active items to be the same as what is on the current outfit
+    # so, say, after a shuffle all the active items in the GUI match what is on the character
+    for l in range(len(context['outfit'])):
+        for a in range(len(context['outfit'][l])):
+            if context['outfit'][l][a]:
+                context['active_item'][l] = a
+
+
 def initialize():
     # get path to the python script being run (this file)
     dirname = os.path.dirname(__file__)
@@ -199,6 +208,7 @@ def major_optimize(context, drawing_context, optimization_context, max_iteration
     HEIGHT = drawing_context['HEIGHT']
 
     # optimization context
+    # these won't be modified
     OP_AXIS = optimization_context["OP_AXIS"]
     OP_AXIS_MAX = optimization_context["OP_AXIS_MAX"]
 
@@ -279,8 +289,6 @@ def multi_opt(context, drawing_context, optimization_context, axis_array, iterat
 
 def minor_optimize(context, drawing_context, optimization_context, iterations, rand=False):
     # context
-    outfit = context['outfit']
-    active_item = context['active_item']
     # these won't be modified
     num_items = context['num_items']
     layer_info_df = context['layer_info_df']
@@ -292,6 +300,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
     HEIGHT = drawing_context['HEIGHT']
 
     # optimization context
+    # these won't be modified
     OP_AXIS = optimization_context["OP_AXIS"]
     OP_AXIS_MAX = optimization_context["OP_AXIS_MAX"]
 
@@ -303,85 +312,61 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
 
     # get metrics for current outfit
     stats = calc_stats(context)
-    prev_score = stats[OP_AXIS]  # save the score on the field we are interested in optimizing (prev best)
+    best_score = stats[OP_AXIS]  # save the score on the field we are interested in optimizing (prev best)
 
     similarity_counter = 0
 
-    # original outfit stored in save_outfit
-    save_outfit = deepcopy(outfit)
-    
-    # we loop through each item on each layer to see if any one item can provide a better score
-    # if an item improves the score we save that as new prev best, and update current outfit to be the 'winning outfit'
-    # continue for given number of iterations
-    # (we go through the layers in order, and the items on each layer in order, but
-    # always start in random spots in those lists)
+    # iterations determines how many layers we will operate on, if iterations is greater than the number of layers
+    # then we loop back and conduct another round of optimizations on the layers again
+    # TODO: iterations should probably be the num of times we loop through all the layers?
     for i in range(iterations):
-        # operate on 'next layer', try next article of clothing
+        # layer_op is the layer we will operate on (determined by i % num_layers)
         layer_op = (i % (num_layers - 1)) + 1
-        if rand:  # if rand we operate on a completely random layer
+        item_op_offset = 0
+        if rand:  # if rand we apply an offset so that we don't always begin optimizations on the first layer
             r = random.randrange(0, (num_layers - 1))
             layer_op = ((i+r) % (num_layers - 1)) + 1
-        item_op_offset = random.randrange(0, num_items[layer_op] + 1)
+            # we also apply an offset to where we start in the list of clothes (but we still go in order)
+            item_op_offset = random.randrange(0, num_items[layer_op] + 1)
 
+        improved = False
         # go through each item on this layer
         for j in range(num_items[layer_op] + 1):
+            # item_op is the item we will test if it makes an improvement (determined by j % num_items in this layer)
             item_op = ((j+item_op_offset) % (num_items[layer_op] + 1))
-
-            # minor shuffle doesn't really shuffle
-            # it just turns off everything in this layer, then turns on the specified item index (item_op)
-            new_outfit = minor_shuffle(context, layer_op, item_op, deepcopy(outfit))
+            # minor shuffle turns off everything in this layer, and turns on the specified item index (item_op)
+            new_outfit = minor_shuffle(context, layer_op, item_op, deepcopy(context['outfit']))  # deepcopy array
             stats = calc_stats(context, new_outfit)
+            # we now calculate the score of this altered outfit after this one item of clothing has been changed
             new_score = stats[OP_AXIS]
 
-            # if new score is better, new score is prev best / save this outfit as new current outfit
-            if OP_AXIS_MAX:  # if we are trying to maximize the score
-                if new_score > prev_score:
-                    prev_score = new_score
-                    save_outfit = deepcopy(new_outfit)
-                    outfit = deepcopy(new_outfit)
-                    context['outfit'] = outfit
-                    # draw this new better outfit on screen
-                    display(context, drawing_context)
-                    pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
-                    pygame.display.update()
-            else:  # if we are trying to minimize the score
-                if new_score < prev_score:
-                    prev_score = new_score
-                    save_outfit = deepcopy(new_outfit)
-                    outfit = deepcopy(new_outfit)
-                    context['outfit'] = outfit
-                    # draw this new better outfit on screen
-                    display(context, drawing_context)
-                    pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
-                    pygame.display.update()
+            # if new_score is better than best_score, new_score is the new best_score
+            # (takes into account if we are trying to maximize or minimize the score
+            if (OP_AXIS_MAX and new_score > best_score) or (not OP_AXIS_MAX and new_score < best_score):
+                best_score = new_score
 
-        # if our current outfit is the same as the previous outfit add 1 to the similarity counter
-        if outfit == save_outfit:
+                # if the new_outfit is an improvement, then set the current real outfit to this improved outfit
+                context['outfit'] = deepcopy(new_outfit)  # copy outfit array just to be safe
+
+                # draw this new better outfit on screen (shows user incremental progress everytime there is improvement)
+                display(context, drawing_context)
+                pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
+                pygame.display.update()
+                improved = True
+
+        # after going through every item in the layer, if no improvements were found, add 1 to the similarity
+        if not improved:
             similarity_counter += 1
         else:
             similarity_counter = 0  # if it differs, reset similarity to 0
 
-        # if the similarity counter reaches a certain threshold (we have had the same outfit for so many iterations
-        # without any improvements) then we stop searching and say we are optimized
-        if similarity_counter >= num_layers * 3:
-            # this stuff (for loop) just sets the active items to be the same as what is on the current outfit
-            for l in range(len(outfit)):
-                for a in range(len(outfit[l])):
-                    if outfit[l][a]:
-                        active_item[l] = a
-                        context['active_item'] = active_item
-            return
-    # assign the best found outfit to be current outfit
-    outfit = deepcopy(save_outfit)
-    # this stuff (for loop) just sets the active items to be the same as what is on the current outfit
-    for l in range(len(outfit)):
-        for a in range(len(outfit[l])):
-            if outfit[l][a]:
-                active_item[l] = a
-                context['outfit'] = outfit
+        # set active items to match whatever our new outfit is
+        set_active_from_current(context)
 
-    # save the outfit we found to be the current outfit in the context
-    context['outfit'] = outfit
+        # if the similarity counter reaches a certain threshold (we have had the same outfit for so many iterations
+        # without any improvements) then we stop searching and say we are optimized (just return)
+        if similarity_counter >= num_layers * 3:
+            return
     return
 
 
