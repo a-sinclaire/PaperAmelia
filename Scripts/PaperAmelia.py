@@ -10,66 +10,66 @@ from bs4 import BeautifulSoup
 
 
 # scraping weather data from Google so I don't have to get an api key
-# code stolen from: https://www.geeksforgeeks.org/how-to-extract-weather-data-from-google-in-python/
+# referenced: https://www.geeksforgeeks.org/how-to-extract-weather-data-from-google-in-python/
+# and this: https://www.thepythoncode.com/article/extract-weather-data-python
 def get_weather(city=None):
     # city name
     if city is None:
         city = "dracut"
     print("Collecting weather data for", city, "...")
 
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.81 Safari/537.36"
+    LANGUAGE = "en-US,en;q=0.5"
+    session = requests.Session()
+    session.headers['User-Agent'] = USER_AGENT
+    session.headers['Accept-Language'] = LANGUAGE
+    session.headers['Content-Language'] = LANGUAGE
 
     # creating url and requests instance
-    url = "https://www.google.com/search?q="+"weather"+city
+    url = "https://www.google.com/search?q=" + "weather+" + city
     try:
-        html = requests.get(url).content
+        html = session.get(url)
     except requests.exceptions.ConnectionError:
         print("Connection Error! Could not acquire weather data.")
         return
 
     # getting raw data
-    soup = BeautifulSoup(html, 'html.parser')
-    temp = soup.find('div', attrs={'class': 'BNeawe iBp4i AP7Wnd'}).text
-    str = soup.find('div', attrs={'class': 'BNeawe tAd8D AP7Wnd'}).text
+    soup = BeautifulSoup(html.text, 'html.parser')
+    weather = {}
 
-    # formatting data
-    data = str.split('\n')
-    time = data[0]
-    sky = data[1]
+    weather['temp'] = soup.find('span', attrs={'id': 'wob_tm'}).text
+    weather['precipitation'] = soup.find('span', attrs={'id': 'wob_pp'}).text
+    weather['humidity'] = soup.find('span', attrs={'id': 'wob_hm'}).text
+    weather['wind'] = soup.find('span', attrs={'id': 'wob_ws'}).text
+    weather['time'] = soup.find('div', attrs={'id': 'wob_dts'}).text
+    weather['sky'] = soup.find('span', attrs={'id': 'wob_dc'}).text
 
-    # getting all div tag
-    listdiv = soup.findAll('div', attrs={'class': 'BNeawe s3v9rd AP7Wnd'})
-    strd = listdiv[3].text
+    # Getting the UV index
+    # 0-2 (low) no protection required [hat+sunglasses] (>=1h to Burn)
+    # 3-5 (med) protection required [hat+sunglasses+SPF15+] (40m to Burn)
+    # 6-7 (high) protection required [coverExposedSkin+hat+sunglasses+SPF30+] (30m to Burn)
+    # 8-10 (very high) extra protection required [avoidTooMuchSun+hat+sunglasses+SPF30+] (20m to Burn)
+    # 11+ (extremely high) extra protection required [DangerousToBeOutside+stayOutOfSun] (<=15m to Burn)
+    # creating url and requests instance (HARD-CODED LOCATION FOR THIS SITE BC I CANT BE BOTHERED TO FIGURE THIS OUT)
+    url = "https://www.uvindextoday.com/usa/massachusetts/middlesex-county/dracut-uv-index"
+    try:
+        html = session.get(url)
+    except requests.exceptions.ConnectionError:
+        print("Connection Error! Could not acquire UV index data.")
+        return
+    soup = BeautifulSoup(html.text, 'html.parser')
+    weather['uv'] = soup.find('p', attrs={'class': 'h4'}).text
 
-    # getting other required data
-    pos = strd.find('Wind')
-    other_data = strd[pos:]
-
-    # printing all data
-    # print("Temperature is", temp)
-    # print("Time: ", time)
-    # print("Sky Description: ", sky)
-    # print(other_data)
-    # # print(np.asarray(listdiv))
-
-    d = re.findall(r'\d+', other_data)
-    wind = int(d[0])  # mph
-    humidity = int(d[1])  # percentage
-    uv = float(d[2]) / float(d[3])  # UV index x of y (x/y)
-    cloud = int(d[4])  # percentage
-    rain = int(d[5])  # rain amount
-
-    weather = {
-        "temp": int(temp.strip('°CF')),
-        "time": time,
-        "sky": sky,
-        "humidity": humidity,
-        "wind": wind,
-        "uv": uv,
-        "cloud": cloud,
-        "rain": rain
-    }
-    # print(weather)
     return weather
+
+
+def get_outfit(weather):
+    temp = weather['temp']
+    humidity = weather['humidity']
+    wind = weather['wind']
+    uv = weather['uv']
+    cloud = weather['cloud']
+    rain = weather['rain']
 
 
 # scales the image (be default all my images are HUGE, so the window doesn't even fit on screen
@@ -343,8 +343,8 @@ def multi_opt(context, drawing_context, optimization_context, axis_array, iterat
     # axis_array_weights = [0.9, 0.5, 0.8, 0.4, 0.2, 0.6, 0.1, 0.0, 0.15, 0.99]
     # axis_array_maxs = [True, True, True, False, True, False, True, True, True, True]
     # ex. summer condition
-    axis_array_weights = [0.5,   0.2,    0.6,    0.8,    0.1,    0.5,    0.45,   0.4,    0.15,   0.99]
-    axis_array_maxs =    [False, False,  False,  True,   True,   True,   True,   True,   True,   False]
+    axis_array_weights = [0.5, 0.2, 0.6, 0.8, 0.1, 0.5, 0.45, 0.4, 0.15, 0.99]
+    axis_array_maxs = [False, False, False, True, True, True, True, True, True, False]
 
     index_array = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     for i in range(round(iterations)):
@@ -372,7 +372,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
     OP_AXIS_MAX = optimization_context["OP_AXIS_MAX"]
 
     num_layers = layer_info_df.shape[0]
-    
+
     # we draw a small blue indicator in the corner of the screen to indicate the program is processing
     pygame.draw.circle(screen, (0, 0, 255), (WIDTH - 20, 40), 10)
     pygame.display.update()
@@ -399,7 +399,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
                 # leaving this garbage comment below bc I may need it eventually if I try using rand again
                 # layer_op = ((i+r) % (num_layers - 1)) + 1  # think some weirdness here is to avoid layer 0
                 # if rand we apply an offset so that we don't always begin optimizations on the 0th layer
-                layer_op = (l+r) % num_layers
+                layer_op = (l + r) % num_layers
                 # we also apply an offset to where we start in the list of clothes (but we still go in order)
                 item_op_offset = random.randrange(0, num_items[layer_op] + 1)
 
@@ -407,7 +407,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
             # go through each item on this layer
             for j in range(num_items[layer_op] + 1):
                 # item_op is the item we will test makes an improvement (determined by j % num_items in this layer)
-                item_op = ((j+item_op_offset) % (num_items[layer_op] + 1))
+                item_op = ((j + item_op_offset) % (num_items[layer_op] + 1))
                 # minor shuffle turns off everything in this layer, and turns on the specified item index (item_op)
                 new_outfit = minor_shuffle(context, layer_op, item_op, deepcopy(context['outfit']))  # deepcopy array
                 stats = calc_stats(context, new_outfit)
@@ -495,22 +495,23 @@ def calc_stats(context, alt_outfit=None):
 
                 avg_waterproofing += coverage * waterproofing
                 avg_brightness += coverage * row['brightness']
-                warmth += coverage * ((thickness + (1.0 - breathability) + (-avg_brightness*0.30)) / 3)
+                warmth += coverage * ((thickness + (1.0 - breathability) + (-avg_brightness * 0.30)) / 3)
     # do some wierd math, idk, should prob think about this more
     if num_layers != 0 and n_clothes != 0:
         avg_thickness = (avg_thickness / (num_layers - 1)) * 100.00
-        avg_breathability = 100.00 - ((avg_breathability / (num_layers-1)) * 100.00)
-        sportiness = (sportiness / (num_layers-1)) * 100.00
-        formality = (formality / (num_layers-1)) * 100.00
-        loungeablity = (loungeablity / (num_layers-1)) * 100.00
+        avg_breathability = 100.00 - ((avg_breathability / (num_layers - 1)) * 100.00)
+        sportiness = (sportiness / (num_layers - 1)) * 100.00
+        formality = (formality / (num_layers - 1)) * 100.00
+        loungeablity = (loungeablity / (num_layers - 1)) * 100.00
 
         avg_waterproofing = (100.00 * avg_waterproofing) / total_coverage
         avg_brightness = (100.00 * avg_brightness) / total_coverage
         warmth = (100.00 * warmth) / total_coverage
     # should probably return this as a dictionary
     return (
-    total_coverage, weight, avg_thickness, avg_breathability, avg_waterproofing, avg_brightness, sportiness, formality,
-    loungeablity, warmth)
+        total_coverage, weight, avg_thickness, avg_breathability, avg_waterproofing, avg_brightness, sportiness,
+        formality,
+        loungeablity, warmth)
 
 
 def display(context, drawing_context, alt_outfit=None):
@@ -614,7 +615,8 @@ def draw_overlay(context, overlay_toggles, drawing_context):
             help_text_real = my_font.render(help_text[i], False, (255, 255, 255))
             screen.blit(help_text_real, (WIDTH / 2 - WIDTH * .25, HEIGHT / 2 - HEIGHT * .25 + (i * 25)))
     if SHOW_STATS:
-        total_coverage, weight, avg_thickness, avg_breathability, avg_waterproofing, avg_brightness, sportiness, formality, loungeablity, warmth = calc_stats(context)
+        total_coverage, weight, avg_thickness, avg_breathability, avg_waterproofing, avg_brightness, sportiness, formality, loungeablity, warmth = calc_stats(
+            context)
 
         stats = ['total coverage: ' + str(round(100.00 * total_coverage, 2)) + '%',
                  'weight: ' + str(round(weight, 2)) + '(kg)',
@@ -736,7 +738,8 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                     context['active_item'] = active_item
                 # toggle item on/off
                 if event.key == pygame.K_RETURN and SHOW_GUI:
-                    outfit[active_layer][active_item[active_layer]] = not outfit[active_layer][active_item[active_layer]]
+                    outfit[active_layer][active_item[active_layer]] = not outfit[active_layer][
+                        active_item[active_layer]]
                     context['outfit'] = outfit
                 # turn off all items in current layer
                 if event.key == pygame.K_x:
