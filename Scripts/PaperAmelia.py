@@ -77,6 +77,10 @@ def get_weather(city=None):
     return weather
 
 
+# this func will eventually take the weather data and return an appropriate outfit
+# perhaps if UV is high we can set a sun protection boolean or something that will control certain aspects
+# and temp can have 5 ranges: freezing, cold, comfy, warm, blazing -- which affects the heat thresholds of which
+# clothes are available... idk we will see eventually
 def get_outfit(weather):
     temp = weather['temp']
     precipitation = weather['precipitation']
