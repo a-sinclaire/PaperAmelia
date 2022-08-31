@@ -1,5 +1,7 @@
 import pygame
 import pandas as pd
+import numpy as np
+import re
 import os
 import random
 from copy import deepcopy
@@ -18,7 +20,11 @@ def get_weather(city=None):
 
     # creating url and requests instance
     url = "https://www.google.com/search?q="+"weather"+city
-    html = requests.get(url).content
+    try:
+        html = requests.get(url).content
+    except requests.exceptions.ConnectionError:
+        print("Connection Error! Could not acquire weather data.")
+        return
 
     # getting raw data
     soup = BeautifulSoup(html, 'html.parser')
@@ -32,17 +38,38 @@ def get_weather(city=None):
 
     # getting all div tag
     listdiv = soup.findAll('div', attrs={'class': 'BNeawe s3v9rd AP7Wnd'})
-    strd = listdiv[5].text
+    strd = listdiv[3].text
 
     # getting other required data
     pos = strd.find('Wind')
     other_data = strd[pos:]
 
     # printing all data
-    print("Temperature is", temp)
-    print("Time: ", time)
-    print("Sky Description: ", sky)
-    print(other_data)
+    # print("Temperature is", temp)
+    # print("Time: ", time)
+    # print("Sky Description: ", sky)
+    # print(other_data)
+    # # print(np.asarray(listdiv))
+
+    d = re.findall(r'\d+', other_data)
+    wind = int(d[0])  # mph
+    humidity = int(d[1])  # percentage
+    uv = float(d[2]) / float(d[3])  # UV index x of y (x/y)
+    cloud = int(d[4])  # percentage
+    rain = int(d[5])  # rain amount
+
+    weather = {
+        "temp": int(temp.strip('°CF')),
+        "time": time,
+        "sky": sky,
+        "humidity": humidity,
+        "wind": wind,
+        "uv": uv,
+        "cloud": cloud,
+        "rain": rain
+    }
+    # print(weather)
+    return weather
 
 
 # scales the image (be default all my images are HUGE, so the window doesn't even fit on screen
@@ -830,7 +857,7 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
 
 
 if __name__ == '__main__':
-    get_weather("dracut")
+    print(get_weather(city="dracut"))
     context_, overlay_toggles_, drawing_context_, optimization_context_ = initialize()
     # drawing context
     clock_ = drawing_context_['clock']
