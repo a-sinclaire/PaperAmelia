@@ -3,6 +3,46 @@ import pandas as pd
 import os
 import random
 from copy import deepcopy
+import requests
+from bs4 import BeautifulSoup
+
+
+# scraping weather data from Google so I don't have to get an api key
+# code stolen from: https://www.geeksforgeeks.org/how-to-extract-weather-data-from-google-in-python/
+def get_weather(city=None):
+    # city name
+    if city is None:
+        city = "dracut"
+    print("Collecting weather data for", city, "...")
+
+
+    # creating url and requests instance
+    url = "https://www.google.com/search?q="+"weather"+city
+    html = requests.get(url).content
+
+    # getting raw data
+    soup = BeautifulSoup(html, 'html.parser')
+    temp = soup.find('div', attrs={'class': 'BNeawe iBp4i AP7Wnd'}).text
+    str = soup.find('div', attrs={'class': 'BNeawe tAd8D AP7Wnd'}).text
+
+    # formatting data
+    data = str.split('\n')
+    time = data[0]
+    sky = data[1]
+
+    # getting all div tag
+    listdiv = soup.findAll('div', attrs={'class': 'BNeawe s3v9rd AP7Wnd'})
+    strd = listdiv[5].text
+
+    # getting other required data
+    pos = strd.find('Wind')
+    other_data = strd[pos:]
+
+    # printing all data
+    print("Temperature is", temp)
+    print("Time: ", time)
+    print("Sky Description: ", sky)
+    print(other_data)
 
 
 # scales the image (be default all my images are HUGE, so the window doesn't even fit on screen
@@ -12,9 +52,9 @@ def scale_img(img, scale):
 
 
 # I don't think map_range is being used rn, but it generally a useful function and i may end up using it in calc_stats
-def map_range(input, in_min, in_max, out_min, out_max):
+def map_range(input_, in_min, in_max, out_min, out_max):
     slope = (out_max - out_min) / (in_max - in_min)
-    return out_min + slope * (input - in_min)
+    return out_min + slope * (input_ - in_min)
 
 
 def set_active_from_current(context):
@@ -790,19 +830,20 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
 
 
 if __name__ == '__main__':
-    context, overlay_toggles, drawing_context, optimization_context = initialize()
+    get_weather("dracut")
+    context_, overlay_toggles_, drawing_context_, optimization_context_ = initialize()
     # drawing context
-    clock = drawing_context['clock']
-    FPS = drawing_context['FPS']
+    clock_ = drawing_context_['clock']
+    FPS_ = drawing_context_['FPS']
 
     # GAME LOOP
     while True:
         # user input
-        check_events(context, overlay_toggles, drawing_context, optimization_context)
+        check_events(context_, overlay_toggles_, drawing_context_, optimization_context_)
         # draw outfit
-        display(context, drawing_context)
+        display(context_, drawing_context_)
         # draw overlays
-        draw_overlay(context, overlay_toggles, drawing_context)
+        draw_overlay(context_, overlay_toggles_, drawing_context_)
 
         pygame.display.update()
-        clock.tick(FPS)
+        clock_.tick(FPS_)
