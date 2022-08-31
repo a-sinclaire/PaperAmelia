@@ -37,10 +37,10 @@ def get_weather(city=None):
     soup = BeautifulSoup(html.text, 'html.parser')
     weather = {}
 
-    weather['temp'] = soup.find('span', attrs={'id': 'wob_tm'}).text
-    weather['precipitation'] = soup.find('span', attrs={'id': 'wob_pp'}).text
-    weather['humidity'] = soup.find('span', attrs={'id': 'wob_hm'}).text
-    weather['wind'] = soup.find('span', attrs={'id': 'wob_ws'}).text
+    weather['temp'] = float(re.findall(r'\d*\.?\d+', soup.find('span', attrs={'id': 'wob_tm'}).text)[0])
+    weather['precipitation'] = float(re.findall(r'\d*\.?\d+', soup.find('span', attrs={'id': 'wob_pp'}).text)[0])
+    weather['humidity'] = float(re.findall(r'\d*\.?\d+', soup.find('span', attrs={'id': 'wob_hm'}).text)[0])
+    weather['wind'] = float(re.findall(r'\d*\.?\d+', soup.find('span', attrs={'id': 'wob_ws'}).text)[0])
     weather['time'] = soup.find('div', attrs={'id': 'wob_dts'}).text
     weather['sky'] = soup.find('span', attrs={'id': 'wob_dc'}).text
 
@@ -58,15 +58,32 @@ def get_weather(city=None):
         print("Connection Error! Could not acquire UV index data.")
         return
     soup = BeautifulSoup(html.text, 'html.parser')
-    weather['uv'] = soup.find('p', attrs={'class': 'h4'}).text
+    weather['uv'] = float(re.findall(r'\d*\.?\d+', soup.find('p', attrs={'class': 'h4'}).text)[0])
+
+    # getting cloud cover and rain amount
+    url = "https://weather.com/weather/hourbyhour/l/Dracut+MA+01826:4:US"
+    try:
+        html = session.get(url)
+    except requests.exceptions.ConnectionError:
+        print("Connection Error! Could not acquire cloud and rain data.")
+        return
+    soup = BeautifulSoup(html.text, 'html.parser')
+    soup = soup.find('details', attrs={'id': 'detailIndex0'})
+    cloud_soup = soup.find('li', attrs={'data-testid': 'CloudCoverSection'})
+    weather['cloud'] = float(re.findall(r'\d*\.?\d+', cloud_soup.find('span', attrs={'data-testid': 'PercentageValue'}).text)[0])
+    rain_soup = soup.find('li', attrs={'data-testid': 'AccumulationSection'})
+    weather['rain'] = float(re.findall(r'\d*\.?\d+', rain_soup.find('span', attrs={'data-testid': 'AccumulationValue'}).text)[0])
 
     return weather
 
 
 def get_outfit(weather):
     temp = weather['temp']
+    precipitation = weather['precipitation']
     humidity = weather['humidity']
     wind = weather['wind']
+    time = weather['time']
+    sky = weather['sky']
     uv = weather['uv']
     cloud = weather['cloud']
     rain = weather['rain']
