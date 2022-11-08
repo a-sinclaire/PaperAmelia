@@ -126,13 +126,14 @@ def get_outfit_weather(context, drawing_context, weather):
             'loungeablity': outfit_score['loungeablity'],  # no relation to weather, so we force the diff to be 0
             'warmth': map_range(temp, 100, 32, 0, 35)
         }
+        # print('target_score: ', target_score)
 
+        # calculate distance between this outfit and the ideal outfit
         # https://www.geeksforgeeks.org/python-subtraction-of-dictionaries/
         difference = {key: outfit_score[key] - target_score.get(key, 0) for key in outfit_score.keys()}
         # print("difference: ", difference)
 
-        # calculate distance between this outfit and the ideal outfit
-        sum_goodness = 1 / sum(difference.values())
+        sum_goodness = sum(abs(ele) for ele in (difference.values()))
 
         # calculate how much these factors match since we don't want a parka and shorts for a 72 degree day
         # mean_distance = np.mean(outfit.values - target.values)
@@ -191,7 +192,7 @@ def get_outfit_weather(context, drawing_context, weather):
     # genetic algorithm
     r_cross = 0.9
     r_mut = 1.0/num_layers
-    n_pop = 10
+    n_pop = 30
     # initial pop of n_pop random outfits
     outfits = []
     for _ in range(n_pop):
@@ -211,7 +212,7 @@ def get_outfit_weather(context, drawing_context, weather):
             if scores[i] < best_eval:
                 best, best_eval = outfits[i], scores[i]
                 # print(">%d, new best f(%s) = %.3f" % (gen, outfits[i], scores[i]))
-                # print("new_best")
+                print("new_best: ", scores[i])
         # select parents
         selected = [selection(outfits, scores) for _ in range(n_pop)]
         # create the next generation
@@ -1001,7 +1002,7 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                 context['outfit'] = outfit
                 context['active_item'] = active_item
             if event.key == pygame.K_w:
-                outfit = get_outfit_weather(context, drawing_context, weather)
+                outfit = get_outfit_weather(context, drawing_context, weather2)
                 for l in range(len(outfit)):
                     for a in range(len(outfit[l])):
                         if outfit[l][a]:
