@@ -92,6 +92,16 @@ def get_outfit(weather):
     cloud = weather['cloud']
     rain = weather['rain']
 
+    # define linear relationships between weather and clothing features
+    target = {
+        'coverage': map_range(temp, 0, 11, -1, 1),
+        'thickness': map_range(temp, 100, 32, -1, 1),
+        'breathability': map_range(temp, 32, 100, -1, 1),
+        'waterproofing': map_range(rain, 0, 100, -1, 1),
+    }
+
+    # calc_stats(context, alt_outfit=something)
+
 
 # scales the image (be default all my images are HUGE, so the window doesn't even fit on screen
 # this is just a func to scale imgs by some given factor so fit on my display
@@ -146,7 +156,7 @@ def initialize():
     SHOW_GUI = True
     SHOW_HELP = False
     SHOW_STATS = False
-    axis_key = ['total_coverage', 'weight', 'avg_thickness', 'avg_breathability', 'waterproof', 'avg_brightness',
+    op_axis_key = ['total_coverage', 'weight', 'avg_thickness', 'avg_breathability', 'waterproof', 'avg_brightness',
                 'sportiness', 'formality', 'loungeablity', 'warmth']
     OP_AXIS = 7
     OP_AXIS_MAX = True
@@ -205,12 +215,12 @@ def initialize():
         "WIDTH": WIDTH,
         "HEIGHT": HEIGHT,
         "my_font": my_font,
-        "axis_key": axis_key
+        "axis_key": op_axis_key
     }
 
     optimization_context = {
         "OP_AXIS": OP_AXIS,
-        "OP_AXIS_MAX": OP_AXIS_MAX
+        "OP_AXIS_MAX": OP_AXIS_MAX,
     }
     return context, overlay_toggles, drawing_context, optimization_context
 
@@ -294,6 +304,7 @@ def major_optimize(context, drawing_context, optimization_context, max_iteration
     screen = drawing_context['screen']
     WIDTH = drawing_context['WIDTH']
     HEIGHT = drawing_context['HEIGHT']
+    op_axis_key = drawing_context['axis_key']
 
     # optimization context
     # these won't be modified
@@ -306,7 +317,7 @@ def major_optimize(context, drawing_context, optimization_context, max_iteration
 
     # get score for current outfit / set it to max score / save current outfit
     stats = calc_stats(context)
-    max_score = stats[OP_AXIS]
+    max_score = stats[op_axis_key[OP_AXIS]]
 
     save_outfit = deepcopy(outfit)
 
@@ -315,7 +326,7 @@ def major_optimize(context, drawing_context, optimization_context, max_iteration
         # get new random outfit / score it
         new_outfit = shuffle(context, deepcopy(outfit))
         stats = calc_stats(context, new_outfit)
-        new_score = stats[OP_AXIS]
+        new_score = stats[op_axis_key[OP_AXIS]]
         # if new score is better than what we had previously
         # then we update the current outfit to be that new 'best outfit'
         # and we break out. stopping all further iterations
@@ -386,6 +397,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
     screen = drawing_context['screen']
     WIDTH = drawing_context['WIDTH']
     HEIGHT = drawing_context['HEIGHT']
+    op_axis_key = drawing_context['axis_key']
 
     # optimization context
     # these won't be modified
@@ -400,7 +412,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
 
     # get metrics for current outfit
     stats = calc_stats(context)
-    best_score = stats[OP_AXIS]  # save the score on the field we are interested in optimizing (prev best)
+    best_score = stats[op_axis_key[OP_AXIS]]  # save the score on the field we are interested in optimizing (prev best)
 
     similarity_counter = 0
 
@@ -433,7 +445,7 @@ def minor_optimize(context, drawing_context, optimization_context, iterations, r
                 new_outfit = minor_shuffle(context, layer_op, item_op, deepcopy(context['outfit']))  # deepcopy array
                 stats = calc_stats(context, new_outfit)
                 # we now calculate the score of this altered outfit after this one item of clothing has been changed
-                new_score = stats[OP_AXIS]
+                new_score = stats[op_axis_key[OP_AXIS]]
 
                 # if new_score is better than best_score, new_score is the new best_score
                 # (takes into account if we are trying to maximize or minimize the score
@@ -529,10 +541,19 @@ def calc_stats(context, alt_outfit=None):
         avg_brightness = (100.00 * avg_brightness) / total_coverage
         warmth = (100.00 * warmth) / total_coverage
     # should probably return this as a dictionary
-    return (
-        total_coverage, weight, avg_thickness, avg_breathability, avg_waterproofing, avg_brightness, sportiness,
-        formality,
-        loungeablity, warmth)
+    stats_dict = {
+        "total_coverage": total_coverage,
+        "weight": weight,
+        "avg_thickness": avg_thickness,
+        "avg_breathability": avg_breathability,
+        "avg_waterproofing": avg_waterproofing,
+        "avg_brightness": avg_brightness,
+        "sportiness": sportiness,
+        "formality": formality,
+        "loungeablity": loungeablity,
+        "warmth": warmth
+    }
+    return stats_dict
 
 
 def display(context, drawing_context, alt_outfit=None):
@@ -614,44 +635,6 @@ def draw_overlay(context, overlay_toggles, drawing_context):
     HEIGHT = drawing_context['HEIGHT']
     my_font = drawing_context['my_font']
 
-    if SHOW_HELP:
-        help_text = ['x -> remove all items on layer',
-                     'CTRL+X -> remove all items',
-                     'y -> hide character',
-                     'g -> toggle GUI',
-                     'left/right -> switch layers',
-                     'up/down -> switch item in layer',
-                     'return -> toggle item on/off',
-                     'h -> toggle help',
-                     'CTRL+S -> save screenshot',
-                     'r -> shuffle to random outfit',
-                     't -> show stats',
-                     'm -> random step optimization',
-                     'n -> systematic optimization',
-                     'o -> open optimization menu',
-                     'CTRL+L -> load all assets',
-                     'l -> lock layer',
-                     'u -> unlock layer']
-        for i in range(len(help_text)):
-            help_text_real = my_font.render(help_text[i], False, (255, 255, 255))
-            screen.blit(help_text_real, (WIDTH / 2 - WIDTH * .25, HEIGHT / 2 - HEIGHT * .25 + (i * 25)))
-    if SHOW_STATS:
-        total_coverage, weight, avg_thickness, avg_breathability, avg_waterproofing, avg_brightness, sportiness, formality, loungeablity, warmth = calc_stats(
-            context)
-
-        stats = ['total coverage: ' + str(round(100.00 * total_coverage, 2)) + '%',
-                 'weight: ' + str(round(weight, 2)) + '(kg)',
-                 'avg thickness: ' + str(round(avg_thickness, 2)) + '%',
-                 'avg breathability: ' + str(round(avg_breathability, 2)) + '%',
-                 'avg waterproofing: ' + str(round(avg_waterproofing, 2)) + '%',
-                 'avg brightness: ' + str(round(avg_brightness, 2)) + '%',
-                 'sportiness: ' + str(round(sportiness, 2)) + '%',
-                 'formality: ' + str(round(formality, 2)) + '%',
-                 'loungeablity: ' + str(round(loungeablity, 2)) + '%',
-                 'warmth: ' + str(round(warmth, 2)) + '%']
-        for i in range(len(stats)):
-            stat_text = my_font.render(stats[i], False, (255, 255, 255))
-            screen.blit(stat_text, (WIDTH / 2 - WIDTH * .25, 6 * HEIGHT / 7 - HEIGHT * .25 + (i * 28)))
     if SHOW_GUI:
         # show text status
         layer_name = layer_info_df.iloc[active_layer]['name']
@@ -683,6 +666,53 @@ def draw_overlay(context, overlay_toggles, drawing_context):
                 context['dataframe'] = df
             # draw the item preview to the left of the model
             screen.blit(row['Sprite'].values[0], (row['x'].values[0] - (WIDTH * 0.3), row['y'].values[0]))
+    if SHOW_HELP:
+        help_text = ['x -> remove all items on layer',
+                     'CTRL+X -> remove all items',
+                     'y -> hide character',
+                     'g -> toggle GUI',
+                     'left/right -> switch layers',
+                     'up/down -> switch item in layer',
+                     'return -> toggle item on/off',
+                     'h -> toggle help',
+                     'CTRL+S -> save screenshot',
+                     'r -> shuffle to random outfit',
+                     't -> show stats',
+                     'm -> random step optimization',
+                     'n -> systematic optimization',
+                     'o -> open optimization menu',
+                     'CTRL+L -> load all assets',
+                     'l -> lock layer',
+                     'u -> unlock layer']
+        for i in range(len(help_text)):
+            help_text_real = my_font.render(help_text[i], False, (255, 255, 255))
+            screen.blit(help_text_real, (WIDTH / 2 - WIDTH * .25, HEIGHT / 2 - HEIGHT * .25 + (i * 25)))
+    if SHOW_STATS:
+        stats_dict = calc_stats(context)
+        total_coverage = stats_dict['total_coverage']
+        weight = stats_dict['weight']
+        avg_thickness = stats_dict['avg_thickness']
+        avg_breathability = stats_dict['avg_breathability']
+        avg_waterproofing = stats_dict['avg_waterproofing']
+        avg_brightness = stats_dict['avg_brightness']
+        sportiness = stats_dict['sportiness']
+        formality = stats_dict['formality']
+        loungeablity = stats_dict['loungeablity']
+        warmth = stats_dict['warmth']
+
+        stats = ['total coverage: ' + str(round(100.00 * total_coverage, 2)) + '%',
+                 'weight: ' + str(round(weight, 2)) + '(kg)',
+                 'avg thickness: ' + str(round(avg_thickness, 2)) + '%',
+                 'avg breathability: ' + str(round(avg_breathability, 2)) + '%',
+                 'avg waterproofing: ' + str(round(avg_waterproofing, 2)) + '%',
+                 'avg brightness: ' + str(round(avg_brightness, 2)) + '%',
+                 'sportiness: ' + str(round(sportiness, 2)) + '%',
+                 'formality: ' + str(round(formality, 2)) + '%',
+                 'loungeablity: ' + str(round(loungeablity, 2)) + '%',
+                 'warmth: ' + str(round(warmth, 2)) + '%']
+        for i in range(len(stats)):
+            stat_text = my_font.render(stats[i], False, (255, 255, 255))
+            screen.blit(stat_text, (WIDTH / 2 - WIDTH * .25, 6 * HEIGHT / 7 - HEIGHT * .25 + (i * 28)))
 
 
 def check_events(context, overlay_toggles, drawing_context, optimization_context):
@@ -711,7 +741,7 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
     WIDTH = drawing_context['WIDTH']
     HEIGHT = drawing_context['HEIGHT']
     my_font = drawing_context['my_font']
-    axis_key = drawing_context['axis_key']
+    op_axis_key = drawing_context['axis_key']
 
     # optimization context
     OP_AXIS = optimization_context["OP_AXIS"]
@@ -849,7 +879,7 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                     # draw the BG and current outfit
                     display(context, drawing_context)
                     # draw menu
-                    axis_text = '<-AXIS->: ' + str(axis_key[OP_AXIS])
+                    axis_text = '<-AXIS->: ' + str(op_axis_key[OP_AXIS])
                     max_text = '^MAXv: ' + str(OP_AXIS_MAX)
                     axis_text_real = my_font.render(axis_text, False, (255, 255, 255))
                     max_text_real = my_font.render(max_text, False, (255, 255, 255))
@@ -865,10 +895,10 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                             exit()
                         if event.type == pygame.KEYDOWN:
                             if event.key == pygame.K_RIGHT:
-                                OP_AXIS = ((OP_AXIS + 1) % len(axis_key))
+                                OP_AXIS = ((OP_AXIS + 1) % len(op_axis_key))
                                 optimization_context["OP_AXIS"] = OP_AXIS
                             if event.key == pygame.K_LEFT:
-                                OP_AXIS = ((OP_AXIS - 1) % len(axis_key))
+                                OP_AXIS = ((OP_AXIS - 1) % len(op_axis_key))
                                 optimization_context["OP_AXIS"] = OP_AXIS
                             if event.key == pygame.K_UP or event.key == pygame.K_DOWN:
                                 OP_AXIS_MAX = not OP_AXIS_MAX
