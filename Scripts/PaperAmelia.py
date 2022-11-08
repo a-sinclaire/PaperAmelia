@@ -115,16 +115,16 @@ def get_outfit_weather(context, drawing_context, weather):
         outfit_score = calc_stats(context, alt_outfit=outfit)
         # define linear relationships between weather and clothing features
         target_score = {
-            'total_coverage': map_range(uv, 0, 11, -1, 1),
+            'total_coverage': map_range(uv, 0, 11, 0, 4),
             'weight': outfit_score['weight'],  # no relation to weather, so we force the diff to be 0
-            'avg_thickness': map_range(temp, 100, 32, -1, 1),
-            'avg_breathability': map_range(temp, 32, 100, -1, 1),
-            'avg_waterproofing': map_range(precipitation, 0, 100, -1, 1),
+            'avg_thickness': map_range(temp, 100, 32, 0, 25),
+            'avg_breathability': map_range(temp, 32, 100, 0, 100),
+            'avg_waterproofing': map_range(precipitation, 0, 100, -40, 30),
             'avg_brightness': outfit_score['avg_brightness'],  # no relation to weather, so we force the diff to be 0
             'sportiness': outfit_score['sportiness'],  # no relation to weather, so we force the diff to be 0
             'formality': outfit_score['formality'],  # no relation to weather, so we force the diff to be 0
             'loungeablity': outfit_score['loungeablity'],  # no relation to weather, so we force the diff to be 0
-            'warmth': map_range(temp, 100, 32, -1, 1)
+            'warmth': map_range(temp, 100, 32, 0, 35)
         }
 
         # https://www.geeksforgeeks.org/python-subtraction-of-dictionaries/
@@ -296,7 +296,7 @@ def initialize():
     SHOW_GUI = True
     SHOW_HELP = False
     SHOW_STATS = False
-    op_axis_key = ['total_coverage', 'weight', 'avg_thickness', 'avg_breathability', 'waterproof', 'avg_brightness',
+    op_axis_key = ['total_coverage', 'weight', 'avg_thickness', 'avg_breathability', 'avg_waterproofing', 'avg_brightness',
                 'sportiness', 'formality', 'loungeablity', 'warmth']
     OP_AXIS = 7
     OP_AXIS_MAX = True
