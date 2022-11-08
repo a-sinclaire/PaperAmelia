@@ -1,6 +1,9 @@
+import copy
+
 import pygame
 import pandas as pd
 import numpy as np
+from numpy.random import randint
 import re
 import os
 import random
@@ -77,11 +80,18 @@ def get_weather(city=None):
     return weather
 
 
-# this func will eventually take the weather data and return an appropriate outfit
-# perhaps if UV is high we can set a sun protection boolean or something that will control certain aspects
-# and temp can have 5 ranges: freezing, cold, comfy, warm, blazing -- which affects the heat thresholds of which
-# clothes are available... idk we will see eventually
-def get_outfit(weather):
+# generates outfit based on current weather condition by defining an ideal outfit's stats,
+# then using a genetic algorithm or approach those stats
+# https://machinelearningmastery.com/simple-genetic-algorithm-from-scratch-in-python/
+def get_outfit_weather(context, drawing_context, weather):
+    # these won't be modified
+    outfit = context['outfit']
+    locked = context['locked']
+    num_items = context['num_items']
+    layer_info_df = context['layer_info_df']
+
+    num_layers = layer_info_df.shape[0]
+
     temp = weather['temp']
     precipitation = weather['precipitation']
     humidity = weather['humidity']
@@ -92,15 +102,145 @@ def get_outfit(weather):
     cloud = weather['cloud']
     rain = weather['rain']
 
-    # define linear relationships between weather and clothing features
-    target = {
-        'coverage': map_range(temp, 0, 11, -1, 1),
-        'thickness': map_range(temp, 100, 32, -1, 1),
-        'breathability': map_range(temp, 32, 100, -1, 1),
-        'waterproofing': map_range(rain, 0, 100, -1, 1),
-    }
+    # drawing context
+    # these won't be modified
+    screen = drawing_context['screen']
+    WIDTH = drawing_context['WIDTH']
+    # we draw a small magenta indicator in the corner of the screen to indicate the program is processing
+    pygame.draw.circle(screen, (255, 0, 255), (WIDTH - 20, 40), 10)
+    pygame.display.update()
 
-    # calc_stats(context, alt_outfit=something)
+    # how good is this outfit?
+    def heuristic(outfit):
+        outfit_score = calc_stats(context, alt_outfit=outfit)
+        # define linear relationships between weather and clothing features
+        target_score = {
+            'total_coverage': map_range(uv, 0, 11, -1, 1),
+            'weight': outfit_score['weight'],  # no relation to weather, so we force the diff to be 0
+            'avg_thickness': map_range(temp, 100, 32, -1, 1),
+            'avg_breathability': map_range(temp, 32, 100, -1, 1),
+            'avg_waterproofing': map_range(precipitation, 0, 100, -1, 1),
+            'avg_brightness': outfit_score['avg_brightness'],  # no relation to weather, so we force the diff to be 0
+            'sportiness': outfit_score['sportiness'],  # no relation to weather, so we force the diff to be 0
+            'formality': outfit_score['formality'],  # no relation to weather, so we force the diff to be 0
+            'loungeablity': outfit_score['loungeablity'],  # no relation to weather, so we force the diff to be 0
+            'warmth': map_range(temp, 100, 32, -1, 1)
+        }
+
+        # https://www.geeksforgeeks.org/python-subtraction-of-dictionaries/
+        difference = {key: outfit_score[key] - target_score.get(key, 0) for key in outfit_score.keys()}
+        # print("difference: ", difference)
+
+        # calculate distance between this outfit and the ideal outfit
+        sum_goodness = 1 / sum(difference.values())
+
+        # calculate how much these factors match since we don't want a parka and shorts for a 72 degree day
+        # mean_distance = np.mean(outfit.values - target.values)
+        # matchiness = np.sum(outfit.values - mean_distance)
+        #
+        # # multiply heuristic by weights
+        # return 0.5 * sum_difference + 0.5 * matchiness
+        return sum_goodness
+
+    # tournament selection
+    def selection(pop, scores, k=3):
+        # first random selection
+        selection_ix = randint(len(pop))
+        for ix in randint(0, len(pop), k - 1):
+            # check if better (e.g. perform a tournament)
+            if scores[ix] < scores[selection_ix]:
+                selection_ix = ix
+        return pop[selection_ix]
+
+    # crossover two parents to create two children
+    def crossover(p1, p2, r_cross):
+        # children are copies of parents by default
+        c1, c2 = p1.copy(), p2.copy()
+        # check for recombination
+        if random.random() < r_cross:
+            # select crossover point (random layer to split on)
+            pt = randint(1, num_layers)
+            # perform crossover
+            c1 = p1[:pt] + p2[pt:]
+            c2 = p2[:pt] + p1[pt:]
+        return [c1, c2]
+
+    # mutation operator
+    def mutation(outfit, r_mut):
+        # go through all the layers
+        for l in range(num_layers):
+            # if the layer is locked, skip it
+            if locked[l]:
+                continue
+            # if the layer is 0 (base) skip it
+            if l == 0:
+                continue
+
+            # check for a mutation
+            if random.random() < r_mut:
+                # turn off all items in this layer
+                copy = outfit[l]
+                for x in range(len(copy)):
+                    copy[x] = False
+                outfit[l] = copy
+
+                # pick a random item on this layer to make active
+                r = random.randrange(0, num_items[l])
+                outfit[l][r] = True
+
+    # genetic algorithm
+    r_cross = 0.9
+    r_mut = 1.0/num_layers
+    n_pop = 10
+    # initial pop of n_pop random outfits
+    outfits = []
+    for _ in range(n_pop):
+        rand_outfit = shuffle(context)
+        outfits.append(copy.deepcopy(rand_outfit))
+
+    # keep track of best solution
+    best, best_eval = 0, heuristic(outfits[0])
+    n_generations = 50
+    # enumerate generations
+    for gen in range(n_generations):
+        # evaluate all candidates in the population
+        scores = [heuristic(o) for o in outfits]
+        # print("scores: ", scores)
+        # check for new best solution
+        for i in range(n_pop):
+            if scores[i] < best_eval:
+                best, best_eval = outfits[i], scores[i]
+                # print(">%d, new best f(%s) = %.3f" % (gen, outfits[i], scores[i]))
+                # print("new_best")
+        # select parents
+        selected = [selection(outfits, scores) for _ in range(n_pop)]
+        # create the next generation
+        children = list()
+        for i in range(0, n_pop, 2):
+            # get selected parents in pairs
+            p1, p2 = selected[i], selected[i + 1]
+            # crossover and mutation
+            for c in crossover(p1, p2, r_cross):
+                # mutation
+                mutation(c, r_mut)
+                # store for next generation
+                children.append(c)
+        # replace population
+        outfits = children
+
+    return best  # return best outfit found
+
+    # stats_dict = calc_stats(context)
+    # total_coverage = stats_dict['total_coverage']
+    # weight = stats_dict['weight']
+    # avg_thickness = stats_dict['avg_thickness']
+    # avg_breathability = stats_dict['avg_breathability']
+    # avg_waterproofing = stats_dict['avg_waterproofing']
+    # avg_brightness = stats_dict['avg_brightness']
+    # sportiness = stats_dict['sportiness']
+    # formality = stats_dict['formality']
+    # loungeablity = stats_dict['loungeablity']
+    # warmth = stats_dict['warmth']
 
 
 # scales the image (be default all my images are HUGE, so the window doesn't even fit on screen
@@ -128,7 +268,7 @@ def initialize():
     # get path to the python script being run (this file)
     dirname = os.path.dirname(__file__)
     # read in csv of clothes data and store in pandas dataframe
-    df = pd.read_csv(os.path.join(dirname, '../Assets/directory.csv'))
+    df = pd.read_csv(os.path.join(dirname, '../Assets/directory_no_nan.csv'))
     # read in layer info csv and store in pandas dataframe
     layer_info_df = pd.read_csv(os.path.join(dirname, '../Assets/layer_info.csv'))
 
@@ -222,7 +362,9 @@ def initialize():
         "OP_AXIS": OP_AXIS,
         "OP_AXIS_MAX": OP_AXIS_MAX,
     }
-    return context, overlay_toggles, drawing_context, optimization_context
+
+    weather = get_weather(city="dracut")
+    return weather, context, overlay_toggles, drawing_context, optimization_context
 
 
 def shuffle(context, alt_outfit=None):
@@ -683,7 +825,8 @@ def draw_overlay(context, overlay_toggles, drawing_context):
                      'o -> open optimization menu',
                      'CTRL+L -> load all assets',
                      'l -> lock layer',
-                     'u -> unlock layer']
+                     'u -> unlock layer',
+                     'w -> generate outfit based on weather']
         for i in range(len(help_text)):
             help_text_real = my_font.render(help_text[i], False, (255, 255, 255))
             screen.blit(help_text_real, (WIDTH / 2 - WIDTH * .25, HEIGHT / 2 - HEIGHT * .25 + (i * 25)))
@@ -715,7 +858,7 @@ def draw_overlay(context, overlay_toggles, drawing_context):
             screen.blit(stat_text, (WIDTH / 2 - WIDTH * .25, 6 * HEIGHT / 7 - HEIGHT * .25 + (i * 28)))
 
 
-def check_events(context, overlay_toggles, drawing_context, optimization_context):
+def check_events(weather, context, overlay_toggles, drawing_context, optimization_context):
     # context
     df = context['dataframe']
     outfit = context['outfit']
@@ -857,6 +1000,14 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
                             active_item[l] = a
                 context['outfit'] = outfit
                 context['active_item'] = active_item
+            if event.key == pygame.K_w:
+                outfit = get_outfit_weather(context, drawing_context, weather)
+                for l in range(len(outfit)):
+                    for a in range(len(outfit[l])):
+                        if outfit[l][a]:
+                            active_item[l] = a
+                context['outfit'] = outfit
+                context['active_item'] = active_item
             # optimize on the axis randomly
             if event.key == pygame.K_m:
                 context = major_optimize(context, drawing_context, optimization_context, 1000)
@@ -911,8 +1062,9 @@ def check_events(context, overlay_toggles, drawing_context, optimization_context
 
 
 if __name__ == '__main__':
-    print(get_weather(city="dracut"))
-    context_, overlay_toggles_, drawing_context_, optimization_context_ = initialize()
+    # print(get_weather(city="dracut"))
+    weather_, context_, overlay_toggles_, drawing_context_, optimization_context_ = initialize()
+    print(weather_)
     # drawing context
     clock_ = drawing_context_['clock']
     FPS_ = drawing_context_['FPS']
@@ -920,7 +1072,7 @@ if __name__ == '__main__':
     # GAME LOOP
     while True:
         # user input
-        check_events(context_, overlay_toggles_, drawing_context_, optimization_context_)
+        check_events(weather_, context_, overlay_toggles_, drawing_context_, optimization_context_)
         # draw outfit
         display(context_, drawing_context_)
         # draw overlays
