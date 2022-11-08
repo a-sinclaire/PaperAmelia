@@ -1002,7 +1002,7 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                 context['outfit'] = outfit
                 context['active_item'] = active_item
             if event.key == pygame.K_w:
-                outfit = get_outfit_weather(context, drawing_context, weather2)
+                outfit = get_outfit_weather(context, drawing_context, weather)
                 for l in range(len(outfit)):
                     for a in range(len(outfit[l])):
                         if outfit[l][a]:
