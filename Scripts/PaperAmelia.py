@@ -115,16 +115,16 @@ def get_outfit_weather(context, drawing_context, weather):
         outfit_score = calc_stats(context, alt_outfit=outfit)
         # define linear relationships between weather and clothing features
         target_score = {
-            'total_coverage': map_range(uv, 0, 11, 0, 4),
-            'weight': outfit_score['weight'],  # no relation to weather, so we force the diff to be 0
-            'avg_thickness': map_range(temp, 100, 32, 0, 25),
+            'total_coverage':    map_range(uv, 0, 11, 0, 4),
+            'weight':            outfit_score['weight'].copy(),            # no relation to weather, so we force the diff to be 0
+            'avg_thickness':     map_range(temp, 100, 32, 0, 25),
             'avg_breathability': map_range(temp, 32, 100, 0, 100),
             'avg_waterproofing': map_range(precipitation, 0, 100, -40, 30),
-            'avg_brightness': outfit_score['avg_brightness'],  # no relation to weather, so we force the diff to be 0
-            'sportiness': outfit_score['sportiness'],  # no relation to weather, so we force the diff to be 0
-            'formality': outfit_score['formality'],  # no relation to weather, so we force the diff to be 0
-            'loungeablity': outfit_score['loungeablity'],  # no relation to weather, so we force the diff to be 0
-            'warmth': map_range(temp, 100, 32, 0, 35)
+            'avg_brightness':    outfit_score['avg_brightness'].copy(),    # no relation to weather, so we force the diff to be 0
+            'sportiness':        outfit_score['sportiness'].copy(),        # no relation to weather, so we force the diff to be 0
+            'formality':         outfit_score['formality'].copy(),         # no relation to weather, so we force the diff to be 0
+            'loungeablity':      outfit_score['loungeablity'].copy(),      # no relation to weather, so we force the diff to be 0
+            'warmth':            map_range(temp, 100, 32, 0, 35)
         }
         # print('target_score: ', target_score)
 
@@ -192,15 +192,23 @@ def get_outfit_weather(context, drawing_context, weather):
     # genetic algorithm
     r_cross = 0.9
     r_mut = 1.0/num_layers
-    n_pop = 30
+    n_pop = 20
     # initial pop of n_pop random outfits
     outfits = []
-    for _ in range(n_pop):
+    for i in range(n_pop):
         rand_outfit = shuffle(context)
+        if i == 0:
+            rand_outfit = nudify(context, rand_outfit)
+            pass
+        if i == 1:
+            rand_outfit = copy.deepcopy(context['outfit'])
+            pass
+
         outfits.append(copy.deepcopy(rand_outfit))
+    # print("outfits: ", outfits)
 
     # keep track of best solution
-    best, best_eval = 0, heuristic(outfits[0])
+    best, best_eval = copy.deepcopy(outfits[0]), heuristic(outfits[0])
     n_generations = 50
     # enumerate generations
     for gen in range(n_generations):
@@ -214,7 +222,8 @@ def get_outfit_weather(context, drawing_context, weather):
                 # print(">%d, new best f(%s) = %.3f" % (gen, outfits[i], scores[i]))
                 print("new_best: ", scores[i])
         # select parents
-        selected = [selection(outfits, scores) for _ in range(n_pop)]
+        selected = [selection(copy.deepcopy(outfits), scores) for _ in range(n_pop)]
+        # print("selected: ", selected)
         # create the next generation
         children = list()
         for i in range(0, n_pop, 2):
@@ -225,10 +234,12 @@ def get_outfit_weather(context, drawing_context, weather):
                 # mutation
                 mutation(c, r_mut)
                 # store for next generation
-                children.append(c)
+                children.append(copy.deepcopy(c))
         # replace population
         outfits = children
+        # print("children: ", best)
 
+    print("best: ", best_eval)
     return best  # return best outfit found
 
     # stats_dict = calc_stats(context)
@@ -404,6 +415,37 @@ def shuffle(context, alt_outfit=None):
             continue
         working_outfit[l][r] = True
     return working_outfit.copy()
+
+
+def nudify(context, alt_outfit=None):
+    # these won't be modified
+    outfit = context['outfit']
+    locked = context['locked']
+    num_items = context['num_items']
+    layer_info_df = context['layer_info_df']
+
+    num_layers = layer_info_df.shape[0]
+
+    # shuffle the current outfit by default
+    working_outfit = copy.deepcopy(outfit)
+    if alt_outfit is not None:  # otherwise shuffle the given alternate outfit
+        working_outfit = copy.deepcopy(alt_outfit)
+
+    # go through all the layers
+    for l in range(num_layers):
+        # if the layer is locked, skip it
+        if locked[l]:
+            continue
+        # if the layer is 0 (base) skip it
+        if l == 0:
+            continue
+
+        # turn off all items in this layer
+        copy1 = copy.deepcopy(working_outfit[l])
+        for x in range(len(copy1)):
+            copy1[x] = False
+        working_outfit[l] = copy.deepcopy(copy1)
+    return copy.deepcopy(working_outfit)
 
 
 def minor_shuffle(context, z, k, s=None):  # z is the layer, k is the item index, s is alt outfit
@@ -938,20 +980,20 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                     context['outfit'] = outfit
                 # turn off all items in current layer
                 if event.key == pygame.K_x:
-                    copy = outfit[active_layer]
-                    for x in range(len(copy)):
-                        copy[x] = False
-                    outfit[active_layer] = copy
+                    copy2 = outfit[active_layer]
+                    for x in range(len(copy2)):
+                        copy2[x] = False
+                    outfit[active_layer] = copy2
                     context['outfit'] = outfit
             # turn off ALL items
             if event.key == pygame.K_x and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 for l in range(num_layers):
                     if l == 0:
                         continue
-                    copy = outfit[l]
-                    for x in range(len(copy)):
-                        copy[x] = False
-                    outfit[l] = copy
+                    copy1 = outfit[l]
+                    for x in range(len(copy1)):
+                        copy1[x] = False
+                    outfit[l] = copy1
                     context['outfit'] = outfit
             # take a screenshot
             if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
@@ -1002,7 +1044,10 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                 context['outfit'] = outfit
                 context['active_item'] = active_item
             if event.key == pygame.K_w:
+                # weather2 = copy.deepcopy(weather)
+                # weather2['temp'] = 901
                 outfit = get_outfit_weather(context, drawing_context, weather)
+                # print("outfit: ", outfit)
                 for l in range(len(outfit)):
                     for a in range(len(outfit[l])):
                         if outfit[l][a]:
