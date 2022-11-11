@@ -1046,19 +1046,25 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                 context['outfit'] = outfit
                 context['active_item'] = active_item
             if event.key == pygame.K_w:
-                # weather2 = copy.deepcopy(weather)
-                # weather2['temp'] = 45
-                # weather2['precipitation'] = 15
-                # weather2['wind'] = 8
-                # weather2['uv'] = 1.5
-                outfit = get_outfit_weather(context, drawing_context, weather)
-                # print("outfit: ", outfit)
-                for l in range(len(outfit)):
-                    for a in range(len(outfit[l])):
-                        if outfit[l][a]:
-                            active_item[l] = a
-                context['outfit'] = outfit
-                context['active_item'] = active_item
+                if weather is None:
+                    try:
+                        weather = get_weather()
+                    except:
+                        pass
+                if weather is not None:
+                    # weather2 = copy.deepcopy(weather)
+                    # weather2['temp'] = 45
+                    # weather2['precipitation'] = 15
+                    # weather2['wind'] = 8
+                    # weather2['uv'] = 1.5
+                    outfit = get_outfit_weather(context, drawing_context, weather)
+                    # print("outfit: ", outfit)
+                    for l in range(len(outfit)):
+                        for a in range(len(outfit[l])):
+                            if outfit[l][a]:
+                                active_item[l] = a
+                    context['outfit'] = outfit
+                    context['active_item'] = active_item
             # optimize on the axis randomly
             if event.key == pygame.K_m:
                 context = major_optimize(context, drawing_context, optimization_context, 1000)
