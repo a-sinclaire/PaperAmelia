@@ -982,7 +982,8 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                 if event.key == pygame.K_x:
                     copy2 = outfit[active_layer]
                     for x in range(len(copy2)):
-                        copy2[x] = False
+                        if locked[active_layer] is False:
+                            copy2[x] = False
                     outfit[active_layer] = copy2
                     context['outfit'] = outfit
             # turn off ALL items
@@ -992,7 +993,8 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                         continue
                     copy1 = outfit[l]
                     for x in range(len(copy1)):
-                        copy1[x] = False
+                        if locked[l] is False:
+                            copy1[x] = False
                     outfit[l] = copy1
                     context['outfit'] = outfit
             # take a screenshot
@@ -1045,7 +1047,10 @@ def check_events(weather, context, overlay_toggles, drawing_context, optimizatio
                 context['active_item'] = active_item
             if event.key == pygame.K_w:
                 # weather2 = copy.deepcopy(weather)
-                # weather2['temp'] = 901
+                # weather2['temp'] = 45
+                # weather2['precipitation'] = 15
+                # weather2['wind'] = 8
+                # weather2['uv'] = 1.5
                 outfit = get_outfit_weather(context, drawing_context, weather)
                 # print("outfit: ", outfit)
                 for l in range(len(outfit)):
