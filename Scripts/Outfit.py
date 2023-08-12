@@ -63,7 +63,13 @@ class Article:
         article_file_path = os.path.join(Article.asset_path, properties[1])
 
         Article.highest_priority += 1
-        return Article(layer, article_file_path, csv_line, priority=Article.highest_priority)
+        article = Article(layer, article_file_path, csv_line, priority=Article.highest_priority)
+        Article.sort()
+        return article
+
+    @staticmethod
+    def sort():
+        Article.articles.sort(key=lambda a: (a.layer, a.priority))
 
 
 class Outfit:
