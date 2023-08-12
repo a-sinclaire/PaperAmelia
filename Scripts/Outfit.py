@@ -6,12 +6,15 @@ def scale_img(img, scale):
 
 
 class Article:
-    def __init__(self, layer, file_path, priority, scale=4.0):
+    articles = []
+
+    def __init__(self, layer, file_path, priority=0, scale=4.0):
         self.layer = layer
         self.file_path = file_path
         self.priority = priority
         self.sprite = None
         self.scale = scale
+        Article.articles.append(self)
 
     def load_sprite(self):
         self.sprite = pygame.image.load(self.file_path)
@@ -25,5 +28,16 @@ class Article:
 
 
 class Outfit:
-    def __int__(self):
-        pass
+    def __init__(self, articles=[]):
+        self.articles = articles
+
+    def toggle_article(self, article):
+        if article in self.articles:
+            self.articles.remove(article)
+            return
+        self.articles.append(article)
+
+    def draw(self, screen):
+        for a in self.articles:
+            a.draw(screen)
+
