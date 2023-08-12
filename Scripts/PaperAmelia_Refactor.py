@@ -21,27 +21,17 @@ def handle_user_input():
     return Action.NULL
 
 
-def load_articles(directory, csv_file_name):
-    csv_file_path = os.path.join(directory, csv_file_name)
-    with open(csv_file_path, 'r') as f:
-        lines = f.readlines()
-    for line in lines[1:]:
-        if line.strip() == '':
-            continue
-        properties = line.split(',')
-        layer = properties[0]
-        article_file_path = os.path.join(directory, properties[1])
-        Article(layer, article_file_path)
-
-
 def main(screen):
     action = Action.NULL
     directory = os.path.dirname(__file__)
     directory = os.path.join(directory, '../Assets/')
+    csv_file_name = 'articles.csv'
+    csv_file_path = os.path.join(directory, csv_file_name)
 
-    load_articles(directory, 'directory_no_nan.csv')
-    outfit = Outfit(Article.articles[4:7])
-    outfit.toggle_article(Article.articles[5])
+    Article.load_articles(directory, csv_file_path)
+
+    outfit = Outfit(Article.articles[7:9])
+    outfit.load(os.path.join(directory, 'outfit.csv'))
 
     while action is not Action.EXIT:
         action = handle_user_input()
