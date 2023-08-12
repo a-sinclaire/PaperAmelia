@@ -1,3 +1,8 @@
+#
+# Author: Amelia Sinclaire
+# Copyright 2023
+#
+
 import pygame
 import os
 
@@ -26,17 +31,17 @@ class Article:
         self.sprite = scale_img(self.sprite, Article.scale)
         print(f'LOADED: {self.file_path}')
 
+    def draw(self, screen):
+        if self.sprite is None:
+            self.load_sprite()
+        screen.blit(self.sprite, (0, 0))
+
     @staticmethod
     def search(csv_data):
         for article in Article.articles:
             if article.csv_data == csv_data:
                 return article
         return None
-
-    def draw(self, screen):
-        if self.sprite is None:
-            self.load_sprite()
-        screen.blit(self.sprite, (0, 0))
 
     @staticmethod
     def load_articles(asset_path, csv_file_path):
@@ -51,10 +56,10 @@ class Article:
     @staticmethod
     def load_article(csv_line):
         if csv_line.strip() == '':  # ignore blank lines
-            return
+            return None
 
         properties = csv_line.split(',')
-        layer = properties[0]
+        layer = int(properties[0])
         article_file_path = os.path.join(Article.asset_path, properties[1])
 
         Article.highest_priority += 1
@@ -67,6 +72,9 @@ class Outfit:
         self.sorted = False
 
     def toggle_article(self, article):
+        if article is None:
+            return
+
         self.sorted = False
         if article in self.articles:
             self.articles.remove(article)
@@ -95,8 +103,10 @@ class Outfit:
         self.articles = []
         with open(file_path, 'r') as f:
             lines = f.readlines()
-        for line in lines[1:]:  # first line has header data for *some reason*
-            article = Article.search(line)  # check if article is already in Article list
+        for csv_line in lines[1:]:  # first line has header data for *some reason*
+            if csv_line.strip() == '':  # ignore blank lines
+                continue
+            article = Article.search(csv_line)  # check if article is already in Article list
             if article is None:
-                article = Article.load_article(line)
+                article = Article.load_article(csv_line)
             self.toggle_article(article)
