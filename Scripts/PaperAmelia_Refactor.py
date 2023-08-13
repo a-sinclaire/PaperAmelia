@@ -53,10 +53,10 @@ def handle_user_input():
             # remove all articles in current layer from current outfit (respect locked layers)
             if event.key == pygame.K_x:
                 return Action.REMOVE_LAYER_ARTICLES
-            # TODO: save current outfit
+            # save current outfit
             if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 return Action.SAVE
-            # TODO: load outfit
+            # load outfit
             if event.key == pygame.K_l and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 return Action.LOAD
             # lock/unlock current layer
@@ -97,16 +97,20 @@ def remove_layer_articles(outfit, layer_idx):
 def add_history(outfit_history, history_position, history_size, outfit):
     history_position = clamp(history_position + 1, 0, history_size)
     # check if the history array is smaller than the max history size
-    if len(outfit_history) < history_size:
-        outfit_history.append(copy.deepcopy(outfit))  # add to the list
+    if len(outfit_history) < history_size:  # if so we grow the array
+        outfit_history.append(copy.deepcopy(outfit))
         return history_position
-    # if list is max size, then check if history position is beyond the end of array
+    # history array is at max size
+    # history position is beyond the end of array
     if history_position > len(outfit_history) - 1:
         history_position -= 1
         outfit_history.pop(0)  # remove oldest item if we exceed max undos
         outfit_history.append(copy.deepcopy(outfit))  # save a copy
         return history_position
-    # otherwise, save outfit to this position
+    # otherwise, history position is somewhere in the middle
+    # we must trim positions after current position, this way current position is most recent
+    del outfit_history[:history_position+1]
+    # save outfit to the current position
     outfit_history[history_position] = copy.deepcopy(outfit)
     return history_position
 
@@ -145,15 +149,13 @@ def main(screen):
 
     # load in all the available articles from the database
     Article.load_articles(asset_path, csv_file_path)
-    print(Article.num_layers)
-    print(Article.num_articles_per_layer)
 
     # Current Outfit = default outfit
     current_outfit = Outfit()
     current_outfit.load(default_outfit_file_path)
 
     # Undo History
-    history_size = 10
+    history_size = 4
     outfit_history = [copy.deepcopy(current_outfit)]
     history_position = 0
 
@@ -195,6 +197,7 @@ def main(screen):
         elif action == Action.RANDOM:
             current_outfit.randomize()
             history_position = add_history(outfit_history, history_position, history_size, current_outfit)
+            set_current_article_idx(current_outfit, current_article_idx)
         elif action == Action.SAVE:
             current_outfit.save()
         elif action == Action.LOAD:
