@@ -17,6 +17,8 @@ class Article:
     asset_path = ''
     scale = 4.0
     highest_priority = -1
+    num_layers = 0
+    num_articles_per_layer = []
 
     def __init__(self, layer, file_path, csv_data, priority=0):
         self.layer = layer
@@ -31,10 +33,10 @@ class Article:
         self.sprite = scale_img(self.sprite, Article.scale)
         print(f'LOADED: {self.file_path}')
 
-    def draw(self, screen):
+    def draw(self, screen, pos=(0, 0)):
         if self.sprite is None:
             self.load_sprite()
-        screen.blit(self.sprite, (0, 0))
+        screen.blit(self.sprite, pos)
 
     @staticmethod
     def search(csv_data):
@@ -52,6 +54,7 @@ class Article:
         Article.csv_titles = lines[0]
         for csv_line in lines[1:]:  # skip csv header
             Article.load_article(csv_line)
+        Article.update()
 
     @staticmethod
     def load_article(csv_line):
@@ -71,14 +74,34 @@ class Article:
     def sort():
         Article.articles.sort(key=lambda a: (a.layer, a.priority))
 
+    @staticmethod
+    def update():
+        Article.num_layers = 1
+        Article.num_articles_per_layer = []
+
+        article_counter = 0
+        Article.sort()
+        last_layer = Article.articles[0].layer
+        for article in Article.articles:
+            if article.layer != last_layer:
+                Article.num_articles_per_layer.append(article_counter)
+                article_counter = 0
+                Article.num_layers += 1
+            article_counter += 1
+            last_layer = article.layer
+        Article.num_articles_per_layer.append(article_counter)
+
 
 class Outfit:
     def __init__(self, articles=[]):
         self.articles = articles
         self.sorted = False
+        self.locked_layers = [False] * Article.num_layers
 
     def toggle_article(self, article):
         if article is None:
+            return
+        if self.locked_layers[article.layer]:  # do nothing if layer is locked
             return
 
         self.sorted = False
@@ -87,16 +110,36 @@ class Outfit:
             return
         self.articles.append(article)
 
+    def toggle_lock(self, layer_idx):
+        self.locked_layers[layer_idx] = not self.locked_layers[layer_idx]
+
+    def remove_article(self, article):
+        if article is None:
+            return
+        if self.locked_layers[article.layer]:  # do nothing if layer is locked
+            return
+
+        self.sorted = False
+        if article in self.articles:
+            self.articles.remove(article)
+
+    def remove_all_articles(self):
+        to_be_removed = []
+        for article in self.articles:
+            to_be_removed.append(article)
+        for article in to_be_removed:
+            self.remove_article(article)
+
     def sort(self):
         self.articles.sort(key=lambda a: (a.layer, a.priority))
         self.sorted = True
 
-    def draw(self, screen):
+    def draw(self, screen, pos=(0, 0)):
         if not self.sorted:
             self.sort()
 
         for a in self.articles:
-            a.draw(screen)
+            a.draw(screen, pos)
 
     def save(self, file_path):
         lines = [Article.csv_titles]
@@ -116,3 +159,5 @@ class Outfit:
             if article is None:
                 article = Article.load_article(csv_line)
             self.toggle_article(article)
+
+        Article.update()
