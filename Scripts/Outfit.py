@@ -5,6 +5,7 @@
 
 import pygame
 import os
+from copy import copy, deepcopy
 
 
 def scale_img(img, scale):
@@ -159,5 +160,12 @@ class Outfit:
             if article is None:
                 article = Article.load_article(csv_line)
             self.toggle_article(article)
-
         Article.update()
+
+    def __deepcopy__(self, memo):
+        new_articles = []
+        for a in self.articles:
+            new_articles.append(a)
+        result = Outfit(new_articles)
+        result.locked_layers = deepcopy(self.locked_layers)
+        return result

@@ -5,11 +5,13 @@
 
 import pygame
 import os
+import copy
 from Outfit import Article, Outfit, scale_img
 from enum import Enum
 
 Action = Enum('Action', ['NONE', 'EXIT', 'PREVIOUS_LAYER', 'NEXT_LAYER', 'PREVIOUS_ARTICLE', 'NEXT_ARTICLE',
-                         'TOGGLE_ARTICLE', 'REMOVE_LAYER_ARTICLES', 'REMOVE_ALL_ARTICLES', 'TOGGLE_LAYER_LOCK'])
+                         'TOGGLE_ARTICLE', 'REMOVE_LAYER_ARTICLES', 'REMOVE_ALL_ARTICLES', 'TOGGLE_LAYER_LOCK',
+                         'UNDO', 'REDO'])
 
 
 def clamp(n, minn, maxn):
@@ -31,7 +33,7 @@ def handle_user_input():
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 return Action.EXIT
-            # TODO toggle article control overlay
+            # TODO: toggle article control overlay
             # change current layer preview
             if event.key == pygame.K_DOWN:
                 return Action.PREVIOUS_LAYER
@@ -47,7 +49,6 @@ def handle_user_input():
                 return Action.TOGGLE_ARTICLE
             # remove all articles from current outfit
             if event.key == pygame.K_x and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                print('remove all')
                 return Action.REMOVE_ALL_ARTICLES
             # remove all articles in current layer from current outfit
             if event.key == pygame.K_x:
@@ -55,12 +56,17 @@ def handle_user_input():
             # lock/unlock current layer
             if event.key == pygame.K_l:
                 return Action.TOGGLE_LAYER_LOCK
+            # undo/redo action
+            if event.key == pygame.K_z and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                return Action.UNDO
+            if event.key == pygame.K_y and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                return Action.REDO
         # save a screenshot
-        # save current outfit
-        # load outfit
+        # TODO: save current outfit
+        # TODO: load outfit
         # toggle help overlay
         # toggle stats overlay
-        # generate a random outfit and make it the current outfit (respect locked layers)
+        # TODO: generate a random outfit and make it the current outfit (respect locked layers)
         # generate an outfit from weather data and make it the current outfit
         # open optimization menu
         #   change current article attribute
@@ -80,6 +86,33 @@ def remove_layer_articles(outfit, layer_idx):
             to_be_removed.append(article)
     for article in to_be_removed:
         outfit.remove_article(article)
+
+
+def add_history(outfit_history, history_position, history_size, outfit):
+    history_position = clamp(history_position + 1, 0, history_size)
+    # check if the history array is smaller than the max history size
+    if len(outfit_history) < history_size:
+        outfit_history.append(copy.deepcopy(outfit))  # add to the list
+        return history_position
+    # if list is max size, then check if history position is beyond the end of array
+    if history_position > len(outfit_history) - 1:
+        history_position -= 1
+        outfit_history.pop(0)  # remove oldest item if we exceed max undos
+        outfit_history.append(copy.deepcopy(outfit))  # save a copy
+        return history_position
+    # otherwise, save outfit to this position
+    outfit_history[history_position] = copy.deepcopy(outfit)
+    return history_position
+
+
+def undo_history(outfit_history, history_position):
+    history_position = clamp(history_position-1, 0, len(outfit_history) - 1)
+    return copy.deepcopy(outfit_history[history_position]), history_position
+
+
+def redo_history(outfit_history, history_position):
+    history_position = clamp(history_position + 1, 0, len(outfit_history) - 1)
+    return copy.deepcopy(outfit_history[history_position]), history_position
 
 
 def main(screen):
@@ -107,6 +140,11 @@ def main(screen):
     current_outfit.load(default_outfit_file_path)
     current_outfit.locked_layers[0] = True  # lock base layer by default
 
+    # Undo History
+    history_size = 10
+    outfit_history = [copy.deepcopy(current_outfit)]
+    history_position = 0
+
     # temporary putting these variables here
     current_layer_idx = 1  # start on first layer above base layer (layer 0)
     current_article_idx = [0] * Article.num_layers
@@ -131,12 +169,19 @@ def main(screen):
             current_article_idx[current_layer_idx] = clamp(current_article_idx[current_layer_idx] + 1, 0, Article.num_articles_per_layer[current_layer_idx]-1)
         elif action == Action.TOGGLE_ARTICLE:
             toggle_article(current_outfit, current_layer_idx, current_article_idx)
+            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
         elif action == Action.REMOVE_LAYER_ARTICLES:
             remove_layer_articles(current_outfit, current_layer_idx)
+            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
         elif action == Action.REMOVE_ALL_ARTICLES:
             current_outfit.remove_all_articles()
+            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
         elif action == Action.TOGGLE_LAYER_LOCK:
             current_outfit.toggle_lock(current_layer_idx)
+        elif action == Action.UNDO:
+            current_outfit, history_position = undo_history(outfit_history, history_position)
+        elif action == Action.REDO:
+            current_outfit, history_position = redo_history(outfit_history, history_position)
         if action is not Action.NONE:
             # print(f'layer: {current_layer_idx}')
             # print(f'layer: {current_article_idx}')
@@ -149,10 +194,10 @@ def main(screen):
         # draw background
         screen.blit(background_sprite, (0, 0))
         screen.blit(background_sprite, (637, 0))
-        # draw outfit
+        # draw outfit(s)
         current_outfit.draw(screen)
         viewer_outfit.draw(screen, (637, 0))
-        # TODO draw overlay
+        # TODO: draw overlay
 
         pygame.display.update()
         clock.tick(60)  # framerate
