@@ -11,7 +11,7 @@ from enum import Enum
 
 Action = Enum('Action', ['NONE', 'EXIT', 'PREVIOUS_LAYER', 'NEXT_LAYER', 'PREVIOUS_ARTICLE', 'NEXT_ARTICLE',
                          'TOGGLE_ARTICLE', 'REMOVE_LAYER_ARTICLES', 'REMOVE_ALL_ARTICLES', 'TOGGLE_LAYER_LOCK',
-                         'UNDO', 'REDO'])
+                         'UNDO', 'REDO', 'SAVE', 'LOAD', 'RANDOM'])
 
 
 def clamp(n, minn, maxn):
@@ -47,12 +47,18 @@ def handle_user_input():
             # toggle article on current outfit
             if event.key == pygame.K_RETURN:
                 return Action.TOGGLE_ARTICLE
-            # remove all articles from current outfit
+            # remove all articles from current outfit (respect locked layers)
             if event.key == pygame.K_x and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 return Action.REMOVE_ALL_ARTICLES
-            # remove all articles in current layer from current outfit
+            # remove all articles in current layer from current outfit (respect locked layers)
             if event.key == pygame.K_x:
                 return Action.REMOVE_LAYER_ARTICLES
+            # TODO: save current outfit
+            if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                return Action.SAVE
+            # TODO: load outfit
+            if event.key == pygame.K_l and pygame.key.get_mods() & pygame.KMOD_CTRL:
+                return Action.LOAD
             # lock/unlock current layer
             if event.key == pygame.K_l:
                 return Action.TOGGLE_LAYER_LOCK
@@ -61,16 +67,16 @@ def handle_user_input():
                 return Action.UNDO
             if event.key == pygame.K_y and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 return Action.REDO
-        # save a screenshot
-        # TODO: save current outfit
-        # TODO: load outfit
-        # toggle help overlay
-        # toggle stats overlay
-        # TODO: generate a random outfit and make it the current outfit (respect locked layers)
-        # generate an outfit from weather data and make it the current outfit
-        # open optimization menu
-        #   change current article attribute
-        #   optimize current article attribute
+            # save a screenshot
+            # toggle help overlay
+            # toggle stats overlay
+            # generate a random outfit and make it the current outfit (respect locked layers)
+            if event.key == pygame.K_r:
+                return Action.RANDOM
+            # generate an outfit from weather data and make it the current outfit
+            # open optimization menu
+            #   change current article attribute
+            #   optimize current article attribute
     return Action.NONE
 
 
@@ -115,12 +121,19 @@ def redo_history(outfit_history, history_position):
     return copy.deepcopy(outfit_history[history_position]), history_position
 
 
+def set_current_article_idx(outfit, current_article_idx):
+    for article in outfit.articles:  # initialize current_article_idx from current_outfit
+        layer_articles = list(filter(lambda a: a.layer == article.layer, Article.articles))
+        current_article_idx[article.layer] = layer_articles.index(article)
+
+
 def main(screen):
     directory = os.path.dirname(__file__)
     asset_path = os.path.join(directory, '../Assets/')
     csv_file_path = os.path.join(asset_path, 'articles.csv')
     background_file_path = os.path.join(asset_path, 'BACKGROUND.png')
-    default_outfit_file_path = os.path.join(asset_path, 'default_outfit.csv')
+    default_outfit_file_path = os.path.join(asset_path, 'default_outfit.outfit')
+    # default_outfit_file_path = 'C:/Users/lader/Desktop/my_outfit.csv'
 
     # set scale
     Article.scale = 4.0
@@ -138,7 +151,6 @@ def main(screen):
     # Current Outfit = default outfit
     current_outfit = Outfit()
     current_outfit.load(default_outfit_file_path)
-    current_outfit.locked_layers[0] = True  # lock base layer by default
 
     # Undo History
     history_size = 10
@@ -148,9 +160,7 @@ def main(screen):
     # temporary putting these variables here
     current_layer_idx = 1  # start on first layer above base layer (layer 0)
     current_article_idx = [0] * Article.num_layers
-    for article in current_outfit.articles:  # initialize current_article_idx from current_outfit
-        layer_articles = list(filter(lambda a: a.layer == article.layer, Article.articles))
-        current_article_idx[article.layer] = layer_articles.index(article)
+    set_current_article_idx(current_outfit, current_article_idx)
 
     # Viewer Outfit = empty outfit
     viewer_outfit = Outfit()
@@ -182,6 +192,14 @@ def main(screen):
             current_outfit, history_position = undo_history(outfit_history, history_position)
         elif action == Action.REDO:
             current_outfit, history_position = redo_history(outfit_history, history_position)
+        elif action == Action.RANDOM:
+            current_outfit.randomize()
+            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
+        elif action == Action.SAVE:
+            current_outfit.save()
+        elif action == Action.LOAD:
+            current_outfit.load()
+            set_current_article_idx(current_outfit, current_article_idx)
         if action is not Action.NONE:
             # print(f'layer: {current_layer_idx}')
             # print(f'layer: {current_article_idx}')

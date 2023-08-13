@@ -2,10 +2,13 @@
 # Author: Amelia Sinclaire
 # Copyright 2023
 #
+import random
 
 import pygame
 import os
 from copy import copy, deepcopy
+from tkinter import *
+from tkinter.filedialog import asksaveasfile, askopenfilename
 
 
 def scale_img(img, scale):
@@ -142,18 +145,43 @@ class Outfit:
         for a in self.articles:
             a.draw(screen, pos)
 
-    def save(self, file_path):
-        lines = [Article.csv_titles]
+    def save(self):
+        locks = ','.join(str(e) for e in self.locked_layers)+'\n'
+        lines = [locks]
         for a in self.articles:
             lines.append(a.csv_data)
-        with open(file_path, 'w+') as f:
-            f.writelines(lines)
 
-    def load(self, file_path):
+        win = Tk()
+        win.geometry("0x0")
+        win.withdraw()
+        f = asksaveasfile(initialfile='Untitled.outfit',
+                          defaultextension=".outfit", filetypes=[("All Files", "*.*"), ("Outfit Files", "*.outfit")])
+        if f is None:
+            win.destroy()
+            return
+        f.writelines(lines)
+        f.close()
+        win.destroy()
+
+    def load(self, file_path=None):
+        use_tk = file_path is None
+        if use_tk:
+            win = Tk()
+            win.geometry("0x0")
+            win.withdraw()
+            file_path = askopenfilename()
+            if file_path is None:
+                win.destroy()
+                return
+
+        print(f'Loading outfit: {file_path}')
+
         self.articles = []
+        self.locked_layers = [False] * Article.num_layers
         with open(file_path, 'r') as f:
             lines = f.readlines()
-        for csv_line in lines[1:]:  # first line has header data for *some reason*
+
+        for csv_line in lines[1:]:  # first line has locked layer data
             if csv_line.strip() == '':  # ignore blank lines
                 continue
             article = Article.search(csv_line)  # check if article is already in Article list
@@ -161,6 +189,10 @@ class Outfit:
                 article = Article.load_article(csv_line)
             self.toggle_article(article)
         Article.update()
+        self.locked_layers = list(e == 'True' for e in lines[0].split(','))
+
+        if use_tk:
+            win.destroy()
 
     def __deepcopy__(self, memo):
         new_articles = []
@@ -169,3 +201,15 @@ class Outfit:
         result = Outfit(new_articles)
         result.locked_layers = deepcopy(self.locked_layers)
         return result
+
+    def randomize(self):
+        self.remove_all_articles()
+        for layer_idx in range(Article.num_layers):
+            layer_articles = list(filter(lambda a: a.layer == layer_idx, Article.articles))
+            temp = random.randrange(0, 100)
+            while temp > 10:  # chance to not turn on any item in this layer
+                # each time we randomly toggle an item in the layer,
+                # make it less likely we toggle another in the same layer
+                temp *= 0.15
+                article_id = random.randrange(0, len(layer_articles))
+                self.toggle_article(layer_articles[article_id])
