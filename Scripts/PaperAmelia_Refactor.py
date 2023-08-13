@@ -7,6 +7,7 @@ import pygame
 import os
 import copy
 from Outfit import Article, Outfit, scale_img
+from Button import Button, ArticleButton
 from enum import Enum
 
 Action = Enum('Action', ['NONE', 'EXIT', 'PREVIOUS_LAYER', 'NEXT_LAYER', 'PREVIOUS_ARTICLE', 'NEXT_ARTICLE',
@@ -26,8 +27,13 @@ def init_pygame(width, height):
     return pygame.display.set_mode((width, height))  # return screen
 
 
-def handle_user_input():
-    for event in pygame.event.get():
+def handle_user_input(buttons):
+    events = pygame.event.get()
+    # check for mouse hover
+    for button in buttons:
+        button.update(events)
+
+    for event in events:
         if event.type == pygame.QUIT:
             return Action.EXIT
         if event.type == pygame.KEYDOWN:
@@ -109,14 +115,14 @@ def add_history(outfit_history, history_position, history_size, outfit):
         return history_position
     # otherwise, history position is somewhere in the middle
     # we must trim positions after current position, this way current position is most recent
-    del outfit_history[:history_position+1]
+    del outfit_history[:history_position + 1]
     # save outfit to the current position
     outfit_history[history_position] = copy.deepcopy(outfit)
     return history_position
 
 
 def undo_history(outfit_history, history_position):
-    history_position = clamp(history_position-1, 0, len(outfit_history) - 1)
+    history_position = clamp(history_position - 1, 0, len(outfit_history) - 1)
     return copy.deepcopy(outfit_history[history_position]), history_position
 
 
@@ -129,6 +135,35 @@ def set_current_article_idx(outfit, current_article_idx):
     for article in outfit.articles:  # initialize current_article_idx from current_outfit
         layer_articles = list(filter(lambda a: a.layer == article.layer, Article.articles))
         current_article_idx[article.layer] = layer_articles.index(article)
+
+
+def article_button_callback(outfit, article):
+    outfit.toggle_article(article)
+
+
+def create_article_buttons(outfit):
+    buttons = pygame.sprite.Group()
+    button_region_x = 1074
+    button_region_y = 0
+    button_region_w = 200
+    button_region_h = 800
+    button_w = 100
+    button_h = 100
+    x_location = button_region_x
+    y_location = button_region_y
+    active = True
+    for article in Article.articles:
+        if x_location >= button_region_x + button_region_w:
+            x_location = button_region_x
+            y_location += button_h
+        if y_location >= button_region_y + button_region_h:
+            y_location = button_region_y
+            active = False
+        buttons.add(ArticleButton(pygame.Rect(x_location, y_location, button_w, button_h), article_button_callback,
+                                  outfit, article, active=active, text=article.csv_data[:10]))
+        x_location += button_w
+
+    return buttons
 
 
 def main(screen):
@@ -155,7 +190,7 @@ def main(screen):
     current_outfit.load(default_outfit_file_path)
 
     # Undo History
-    history_size = 4
+    history_size = 10
     outfit_history = [copy.deepcopy(current_outfit)]
     history_position = 0
 
@@ -168,17 +203,26 @@ def main(screen):
     viewer_outfit = Outfit()
     viewer_outfit.toggle_article(Article.articles[1])
 
+    # Create Button
+    test_button = Button(pygame.Rect(0, 0, 60, 60), lambda: print('AHHH!'), active=True, text='',
+                         icon_path=os.path.join(asset_path, 'test_icon.png'))
+    ArticleButton.article_thumbs_file_path = os.path.join(asset_path, 'Article_Thumbnails/')
+    print(f'path: {ArticleButton.article_thumbs_file_path}')
+    buttons = create_article_buttons(current_outfit)
+
     action = Action.NONE
     while action is not Action.EXIT:
-        action = handle_user_input()
+        action = handle_user_input(buttons)
         if action == Action.PREVIOUS_LAYER:
             current_layer_idx = clamp(current_layer_idx - 1, 0, Article.num_layers - 1)
         elif action == Action.NEXT_LAYER:
             current_layer_idx = clamp(current_layer_idx + 1, 0, Article.num_layers - 1)
         elif action == Action.PREVIOUS_ARTICLE:
-            current_article_idx[current_layer_idx] = clamp(current_article_idx[current_layer_idx] - 1, 0, Article.num_articles_per_layer[current_layer_idx]-1)
+            current_article_idx[current_layer_idx] = clamp(current_article_idx[current_layer_idx] - 1, 0,
+                                                           Article.num_articles_per_layer[current_layer_idx] - 1)
         elif action == Action.NEXT_ARTICLE:
-            current_article_idx[current_layer_idx] = clamp(current_article_idx[current_layer_idx] + 1, 0, Article.num_articles_per_layer[current_layer_idx]-1)
+            current_article_idx[current_layer_idx] = clamp(current_article_idx[current_layer_idx] + 1, 0,
+                                                           Article.num_articles_per_layer[current_layer_idx] - 1)
         elif action == Action.TOGGLE_ARTICLE:
             toggle_article(current_outfit, current_layer_idx, current_article_idx)
             history_position = add_history(outfit_history, history_position, history_size, current_outfit)
@@ -219,6 +263,9 @@ def main(screen):
         current_outfit.draw(screen)
         viewer_outfit.draw(screen, (637, 0))
         # TODO: draw overlay
+        # draw buttons
+        for button in buttons:
+            button.draw(screen)
 
         pygame.display.update()
         clock.tick(60)  # framerate

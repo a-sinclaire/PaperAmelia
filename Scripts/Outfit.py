@@ -37,6 +37,11 @@ class Article:
         self.sprite = scale_img(self.sprite, Article.scale)
         print(f'LOADED: {self.file_path}')
 
+    def get_sprite(self):
+        if self.sprite is None:
+            self.load_sprite()
+        return self.sprite
+
     def draw(self, screen, pos=(0, 0)):
         if self.sprite is None:
             self.load_sprite()
@@ -190,6 +195,8 @@ class Outfit:
             self.toggle_article(article)
         Article.update()
         self.locked_layers = list(e == 'True' for e in lines[0].split(','))
+        if len(self.locked_layers) is not Article.num_layers:
+            self.locked_layers = [False] * Article.num_layers
 
         if use_tk:
             win.destroy()
