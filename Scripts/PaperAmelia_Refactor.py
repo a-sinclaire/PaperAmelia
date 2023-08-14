@@ -16,6 +16,102 @@ Action = Enum('Action', ['NONE', 'EXIT', 'PREVIOUS_LAYER', 'NEXT_LAYER', 'PREVIO
                          'UNDO', 'REDO', 'SAVE', 'LOAD', 'RANDOM'])
 
 
+class PaperAmeliaContext:
+    def __init__(self, default_outfit_file_path=None, max_undos=10):
+        self.undo_buffer = UndoBuffer(max_undos=max_undos)
+
+        self.current_outfit = Outfit()
+        if default_outfit_file_path is not None:
+            self.current_outfit.load(default_outfit_file_path)
+        self.save_state()
+        self.viewer_outfit = Outfit()
+        self.viewer_outfit.toggle_article(Article.articles[1])
+
+        self.current_layer_id = 1
+        self.current_article_ids = [0] * Article.num_layers
+
+        self.set_current_article_ids()
+
+    def set_current_article_ids(self):
+        for article in self.current_outfit.articles:  # initialize current_article_idx from current_outfit
+            layer_articles = list(filter(lambda a: a.layer == article.layer, Article.articles))
+            self.current_article_ids[article.layer] = layer_articles.index(article)
+
+    def previous_layer(self):
+        self.current_layer_id = clamp(self.current_layer_id - 1, 0, Article.num_layers - 1)
+
+    def next_layer(self):
+        self.current_layer_id = clamp(self.current_layer_id + 1, 0, Article.num_layers - 1)
+
+    def previous_article(self):
+        self.current_article_ids[self.current_layer_id] = clamp(self.current_article_ids[self.current_layer_id] - 1, 0,
+                                                                Article.num_articles_per_layer[
+                                                                    self.current_layer_id] - 1)
+
+    def next_article(self):
+        self.current_article_ids[self.current_layer_id] = clamp(self.current_article_ids[self.current_layer_id] + 1, 0,
+                                                                Article.num_articles_per_layer[
+                                                                    self.current_layer_id] - 1)
+
+    def toggle_article(self, outfit=None):
+        if outfit is None:
+            outfit = self.current_outfit
+        layer_articles = list(filter(lambda a: a.layer == self.current_layer_id, Article.articles))
+        outfit.toggle_article(layer_articles[self.current_article_ids[self.current_layer_id]])
+        if outfit == self.current_outfit:
+            print('save state after toggle')
+            self.save_state()
+
+    def save_state(self):
+        self.undo_buffer.add(self.current_outfit)
+
+    def remove_layer_articles(self, outfit=None):
+        if outfit is None:
+            outfit = self.current_outfit
+        outfit.remove_layer_articles(self.current_layer_id)
+        if outfit == self.current_outfit:
+            print('save state after remove layer')
+            self.save_state()
+
+    def remove_all_articles(self, outfit=None):
+        if outfit is None:
+            outfit = self.current_outfit
+        outfit.remove_all_articles()
+        if outfit == self.current_outfit:
+            print('save state after remove all')
+            self.save_state()
+
+    def toggle_layer_lock(self):
+        self.current_outfit.toggle_lock(self.current_layer_id)
+
+    def undo(self):
+        self.current_outfit = self.undo_buffer.undo()
+
+    def redo(self):
+        self.current_outfit = self.undo_buffer.redo()
+
+    def randomize_outfit(self, outfit=None):
+        if outfit is None:
+            outfit = self.current_outfit
+        outfit.randomize()
+        if outfit == self.current_outfit:
+            self.set_current_article_ids()
+            print('save state after randomize')
+            self.save_state()
+
+    def save(self):
+        self.current_outfit.save()
+
+    def load(self):
+        self.current_outfit.load()
+        self.set_current_article_ids()
+
+    def draw(self, screen, pos=(0, 0), outfit=None):
+        if outfit is None:
+            outfit = self.current_outfit
+        outfit.draw(screen, pos)
+
+
 def clamp(n, minn, maxn):
     return max(min(maxn, n), minn)
 
@@ -28,7 +124,7 @@ def init_pygame(width, height):
     return pygame.display.set_mode((width, height))  # return screen
 
 
-def handle_user_input(buttons):
+def handle_user_input(paper_amelia, buttons):
     events = pygame.event.get()
     # check for mouse hover
     for button in buttons:
@@ -43,68 +139,50 @@ def handle_user_input(buttons):
             # TODO: toggle article control overlay
             # change current layer preview
             if event.key == pygame.K_DOWN:
-                return Action.PREVIOUS_LAYER
+                paper_amelia.previous_layer()
             if event.key == pygame.K_UP:
-                return Action.NEXT_LAYER
+                paper_amelia.next_layer()
             # change current article preview
             if event.key == pygame.K_LEFT:
-                return Action.PREVIOUS_ARTICLE
+                paper_amelia.previous_article()
             if event.key == pygame.K_RIGHT:
-                return Action.NEXT_ARTICLE
+                paper_amelia.next_article()
             # toggle article on current outfit
             if event.key == pygame.K_RETURN:
-                return Action.TOGGLE_ARTICLE
+                paper_amelia.toggle_article()
             # remove all articles from current outfit (respect locked layers)
             if event.key == pygame.K_x and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                return Action.REMOVE_ALL_ARTICLES
+                paper_amelia.remove_all_articles()
             # remove all articles in current layer from current outfit (respect locked layers)
             if event.key == pygame.K_x:
-                return Action.REMOVE_LAYER_ARTICLES
+                paper_amelia.remove_layer_articles()
             # save current outfit
             if event.key == pygame.K_s and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                return Action.SAVE
+                paper_amelia.save()
             # load outfit
             if event.key == pygame.K_l and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                return Action.LOAD
+                paper_amelia.load()
             # lock/unlock current layer
             if event.key == pygame.K_l:
-                return Action.TOGGLE_LAYER_LOCK
+                paper_amelia.toggle_layer_lock()
             # undo/redo action
             if event.key == pygame.K_z and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                return Action.UNDO
+                paper_amelia.undo()
+                update_article_buttons_outfits(buttons, paper_amelia.current_outfit)
             if event.key == pygame.K_y and pygame.key.get_mods() & pygame.KMOD_CTRL:
-                return Action.REDO
+                paper_amelia.redo()
+                update_article_buttons_outfits(buttons, paper_amelia.current_outfit)
             # save a screenshot
             # toggle help overlay
             # toggle stats overlay
             # generate a random outfit and make it the current outfit (respect locked layers)
             if event.key == pygame.K_r:
-                return Action.RANDOM
+                paper_amelia.randomize_outfit()
             # generate an outfit from weather data and make it the current outfit
             # open optimization menu
             #   change current article attribute
             #   optimize current article attribute
     return Action.NONE
-
-
-def toggle_article(outfit, layer_idx, article_idx):
-    layer_articles = list(filter(lambda a: a.layer == layer_idx, Article.articles))
-    outfit.toggle_article(layer_articles[article_idx[layer_idx]])
-
-
-def remove_layer_articles(outfit, layer_idx):
-    to_be_removed = []
-    for article in outfit.articles:
-        if article.layer == layer_idx:
-            to_be_removed.append(article)
-    for article in to_be_removed:
-        outfit.remove_article(article)
-
-
-def set_current_article_idx(outfit, current_article_idx):
-    for article in outfit.articles:  # initialize current_article_idx from current_outfit
-        layer_articles = list(filter(lambda a: a.layer == article.layer, Article.articles))
-        current_article_idx[article.layer] = layer_articles.index(article)
 
 
 def article_button_callback(outfit, article):
@@ -160,84 +238,30 @@ def main(screen):
     # load in all the available articles from the database
     Article.load_articles(asset_path, csv_file_path)
 
-    # Current Outfit = default outfit
-    current_outfit = Outfit()
-    current_outfit.load(default_outfit_file_path)
-
-    # Undo History
-    undo_buffer = UndoBuffer(max_undos=3)
-    undo_buffer.add(current_outfit)
-
-    # temporary putting these variables here
-    current_layer_idx = 1  # start on first layer above base layer (layer 0)
-    current_article_idx = [0] * Article.num_layers
-    set_current_article_idx(current_outfit, current_article_idx)
-
-    # Viewer Outfit = empty outfit
-    viewer_outfit = Outfit()
-    viewer_outfit.toggle_article(Article.articles[1])
+    # Setup Main Context object
+    paper_amelia = PaperAmeliaContext(default_outfit_file_path, max_undos=10)
 
     # Create Button
     test_button = Button(pygame.Rect(0, 0, 60, 60), lambda: print('AHHH!'), active=True, text='',
                          icon_path=os.path.join(asset_path, 'test_icon.png'))
     ArticleButton.article_thumbs_file_path = os.path.join(asset_path, 'Article_Thumbnails/')
     print(f'path: {ArticleButton.article_thumbs_file_path}')
-    buttons = create_article_buttons(current_outfit)
+    buttons = create_article_buttons(paper_amelia.current_outfit)
 
     action = Action.NONE
     while action is not Action.EXIT:
-        action = handle_user_input(buttons)
-        if action == Action.PREVIOUS_LAYER:
-            current_layer_idx = clamp(current_layer_idx - 1, 0, Article.num_layers - 1)
-        elif action == Action.NEXT_LAYER:
-            current_layer_idx = clamp(current_layer_idx + 1, 0, Article.num_layers - 1)
-        elif action == Action.PREVIOUS_ARTICLE:
-            current_article_idx[current_layer_idx] = clamp(current_article_idx[current_layer_idx] - 1, 0,
-                                                           Article.num_articles_per_layer[current_layer_idx] - 1)
-        elif action == Action.NEXT_ARTICLE:
-            current_article_idx[current_layer_idx] = clamp(current_article_idx[current_layer_idx] + 1, 0,
-                                                           Article.num_articles_per_layer[current_layer_idx] - 1)
-        elif action == Action.TOGGLE_ARTICLE:
-            toggle_article(current_outfit, current_layer_idx, current_article_idx)
-            undo_buffer.add(current_outfit)
-        elif action == Action.REMOVE_LAYER_ARTICLES:
-            remove_layer_articles(current_outfit, current_layer_idx)
-            undo_buffer.add(current_outfit)
-        elif action == Action.REMOVE_ALL_ARTICLES:
-            current_outfit.remove_all_articles()
-            undo_buffer.add(current_outfit)
-        elif action == Action.TOGGLE_LAYER_LOCK:
-            current_outfit.toggle_lock(current_layer_idx)
-        elif action == Action.UNDO:
-            current_outfit = undo_buffer.undo()
-            update_article_buttons_outfits(buttons, current_outfit)
-        elif action == Action.REDO:
-            current_outfit = undo_buffer.redo()
-            update_article_buttons_outfits(buttons, current_outfit)
-        elif action == Action.RANDOM:
-            current_outfit.randomize()
-            undo_buffer.add(current_outfit)
-            set_current_article_idx(current_outfit, current_article_idx)
-        elif action == Action.SAVE:
-            current_outfit.save()
-        elif action == Action.LOAD:
-            current_outfit.load()
-            set_current_article_idx(current_outfit, current_article_idx)
-        if action is not Action.NONE:
-            # print(f'layer: {current_layer_idx}')
-            # print(f'layer: {current_article_idx}')
-            pass
+        action = handle_user_input(paper_amelia, buttons)
 
         # update viewer outfit
-        viewer_outfit.remove_all_articles()
-        toggle_article(viewer_outfit, current_layer_idx, current_article_idx)
+        paper_amelia.remove_all_articles(outfit=paper_amelia.viewer_outfit)
+        paper_amelia.toggle_article(outfit=paper_amelia.viewer_outfit)
 
         # draw background
         screen.blit(background_sprite, (0, 0))
         screen.blit(background_sprite, (637, 0))
         # draw outfit(s)
-        current_outfit.draw(screen)
-        viewer_outfit.draw(screen, (637, 0))
+        paper_amelia.draw(screen)
+        paper_amelia.draw(screen, (637, 0), paper_amelia.viewer_outfit)
         # TODO: draw overlay
         # draw buttons
         for button in buttons:

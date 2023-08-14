@@ -139,6 +139,14 @@ class Outfit:
         for article in to_be_removed:
             self.remove_article(article)
 
+    def remove_layer_articles(self, layer_id):
+        to_be_removed = []
+        for article in self.articles:
+            if article.layer == layer_id:
+                to_be_removed.append(article)
+        for article in to_be_removed:
+            self.remove_article(article)
+
     def sort(self):
         self.articles.sort(key=lambda a: (a.layer, a.priority))
         self.sorted = True
