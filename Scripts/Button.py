@@ -1,5 +1,7 @@
 import pygame
 import os
+import numpy as np
+from PIL import Image,ImageOps
 
 pygame.font.init()
 
@@ -70,17 +72,31 @@ class ArticleButton(Button):
     article_thumbs_file_path = None
 
     def __init__(self, rect, callback, outfit, article, active=False, text='', icon_path=None):
+        self.outfit = outfit
+        self.article = article
+        self.rect = rect
         file_name = article.csv_data.split(',')[1]
         icon_path = os.path.join(str(ArticleButton.article_thumbs_file_path), file_name)
         if not os.path.isfile(icon_path):
             # TODO: generate icon and save it.
-            img = article.get_sprite()
-            scale = 8.0
-            new_img = pygame.transform.scale(img, (img.get_width() / scale, img.get_height() / scale))
-            pygame.image.save(new_img, icon_path)
+            self.generate_thumbnail(icon_path)
         super().__init__(rect, callback, active, text, icon_path)
-        self.outfit = outfit
-        self.article = article
 
     def caller(self):
         self.callback(self.outfit, self.article)
+
+    def generate_thumbnail(self, save_path):
+        size = self.rect.size
+        image_array = pygame.surfarray.array2d(self.article.get_sprite())
+        im = Image.fromarray(image_array, mode='RGBA')
+        im = im.rotate(-90, expand=True)
+        im = ImageOps.mirror(im)
+        im2 = im.crop(im.getbbox())
+        width, height = im2.size
+        side_length = max(width, height)
+        padding = int(side_length * 0.1)
+        side_length += int(padding*2)
+        result = Image.new(im2.mode, (side_length, side_length), (0, 0, 0, 0))
+        result.paste(im2, ((side_length//2)-(width//2), (side_length//2)-(height//2)))
+        result.thumbnail(size)
+        result.save(save_path)

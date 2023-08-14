@@ -160,7 +160,7 @@ def create_article_buttons(outfit):
             y_location = button_region_y
             active = False
         buttons.add(ArticleButton(pygame.Rect(x_location, y_location, button_w, button_h), article_button_callback,
-                                  outfit, article, active=active, text=article.csv_data[:10]))
+                                  outfit, article, active=active, text=''))
         x_location += button_w
 
     return buttons
