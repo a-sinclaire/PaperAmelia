@@ -8,6 +8,7 @@ import os
 import copy
 from Outfit import Article, Outfit, scale_img
 from Button import Button, ArticleButton
+from Undo import UndoBuffer
 from enum import Enum
 
 Action = Enum('Action', ['NONE', 'EXIT', 'PREVIOUS_LAYER', 'NEXT_LAYER', 'PREVIOUS_ARTICLE', 'NEXT_ARTICLE',
@@ -100,37 +101,6 @@ def remove_layer_articles(outfit, layer_idx):
         outfit.remove_article(article)
 
 
-def add_history(history_list, history_position_idx, max_history_len, outfit):
-    history_position_idx = clamp(history_position_idx + 1, 0, max_history_len)
-
-    # history position is beyond the end of array
-    if history_position_idx > len(history_list) - 1:
-        # history list is at max len
-        if len(history_list) == max_history_len:
-            history_position_idx -= 1
-            history_list.pop(0)  # remove oldest item if we exceed max undos
-        history_list.append(copy.deepcopy(outfit))
-        print(f'{history_position_idx}/{max_history_len}')
-        return history_position_idx
-
-    # we must trim positions after current position, this way current position is most recent
-    print(f'{history_position_idx}/{max_history_len}')
-    del history_list[history_position_idx + 1:]
-    # save outfit to the current position
-    history_list[history_position_idx] = copy.deepcopy(outfit)
-    return history_position_idx
-
-
-def undo_history(outfit_history, history_position):
-    history_position = clamp(history_position - 1, 0, len(outfit_history) - 1)
-    return copy.deepcopy(outfit_history[history_position]), history_position
-
-
-def redo_history(outfit_history, history_position):
-    history_position = clamp(history_position + 1, 0, len(outfit_history) - 1)
-    return copy.deepcopy(outfit_history[history_position]), history_position
-
-
 def set_current_article_idx(outfit, current_article_idx):
     for article in outfit.articles:  # initialize current_article_idx from current_outfit
         layer_articles = list(filter(lambda a: a.layer == article.layer, Article.articles))
@@ -195,9 +165,8 @@ def main(screen):
     current_outfit.load(default_outfit_file_path)
 
     # Undo History
-    history_size = 4
-    outfit_history = [copy.deepcopy(current_outfit)]
-    history_position = 0
+    undo_buffer = UndoBuffer(max_undos=3)
+    undo_buffer.add(current_outfit)
 
     # temporary putting these variables here
     current_layer_idx = 1  # start on first layer above base layer (layer 0)
@@ -230,24 +199,24 @@ def main(screen):
                                                            Article.num_articles_per_layer[current_layer_idx] - 1)
         elif action == Action.TOGGLE_ARTICLE:
             toggle_article(current_outfit, current_layer_idx, current_article_idx)
-            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
+            undo_buffer.add(current_outfit)
         elif action == Action.REMOVE_LAYER_ARTICLES:
             remove_layer_articles(current_outfit, current_layer_idx)
-            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
+            undo_buffer.add(current_outfit)
         elif action == Action.REMOVE_ALL_ARTICLES:
             current_outfit.remove_all_articles()
-            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
+            undo_buffer.add(current_outfit)
         elif action == Action.TOGGLE_LAYER_LOCK:
             current_outfit.toggle_lock(current_layer_idx)
         elif action == Action.UNDO:
-            current_outfit, history_position = undo_history(outfit_history, history_position)
+            current_outfit = undo_buffer.undo()
             update_article_buttons_outfits(buttons, current_outfit)
         elif action == Action.REDO:
-            current_outfit, history_position = redo_history(outfit_history, history_position)
+            current_outfit = undo_buffer.redo()
             update_article_buttons_outfits(buttons, current_outfit)
         elif action == Action.RANDOM:
             current_outfit.randomize()
-            history_position = add_history(outfit_history, history_position, history_size, current_outfit)
+            undo_buffer.add(current_outfit)
             set_current_article_idx(current_outfit, current_article_idx)
         elif action == Action.SAVE:
             current_outfit.save()

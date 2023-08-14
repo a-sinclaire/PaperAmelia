@@ -1,7 +1,11 @@
+#
+# Author: Amelia Sinclaire
+# Copyright 2023
+#
+
 import pygame
 import os
-import numpy as np
-from PIL import Image,ImageOps
+from PIL import Image, ImageOps
 
 pygame.font.init()
 
