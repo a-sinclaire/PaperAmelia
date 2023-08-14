@@ -41,14 +41,14 @@ def handle_user_input(buttons):
                 return Action.EXIT
             # TODO: toggle article control overlay
             # change current layer preview
-            if event.key == pygame.K_LEFT:
+            if event.key == pygame.K_DOWN:
                 return Action.PREVIOUS_LAYER
-            if event.key == pygame.K_RIGHT:
+            if event.key == pygame.K_UP:
                 return Action.NEXT_LAYER
             # change current article preview
-            if event.key == pygame.K_DOWN:
+            if event.key == pygame.K_LEFT:
                 return Action.PREVIOUS_ARTICLE
-            if event.key == pygame.K_UP:
+            if event.key == pygame.K_RIGHT:
                 return Action.NEXT_ARTICLE
             # toggle article on current outfit
             if event.key == pygame.K_RETURN:
@@ -100,25 +100,25 @@ def remove_layer_articles(outfit, layer_idx):
         outfit.remove_article(article)
 
 
-def add_history(outfit_history, history_position, history_size, outfit):
-    history_position = clamp(history_position + 1, 0, history_size)
-    # check if the history array is smaller than the max history size
-    if len(outfit_history) < history_size:  # if so we grow the array
-        outfit_history.append(copy.deepcopy(outfit))
-        return history_position
-    # history array is at max size
+def add_history(history_list, history_position_idx, max_history_len, outfit):
+    history_position_idx = clamp(history_position_idx + 1, 0, max_history_len)
+
     # history position is beyond the end of array
-    if history_position > len(outfit_history) - 1:
-        history_position -= 1
-        outfit_history.pop(0)  # remove oldest item if we exceed max undos
-        outfit_history.append(copy.deepcopy(outfit))  # save a copy
-        return history_position
-    # otherwise, history position is somewhere in the middle
+    if history_position_idx > len(history_list) - 1:
+        # history list is at max len
+        if len(history_list) == max_history_len:
+            history_position_idx -= 1
+            history_list.pop(0)  # remove oldest item if we exceed max undos
+        history_list.append(copy.deepcopy(outfit))
+        print(f'{history_position_idx}/{max_history_len}')
+        return history_position_idx
+
     # we must trim positions after current position, this way current position is most recent
-    del outfit_history[:history_position + 1]
+    print(f'{history_position_idx}/{max_history_len}')
+    del history_list[history_position_idx + 1:]
     # save outfit to the current position
-    outfit_history[history_position] = copy.deepcopy(outfit)
-    return history_position
+    history_list[history_position_idx] = copy.deepcopy(outfit)
+    return history_position_idx
 
 
 def undo_history(outfit_history, history_position):
@@ -166,6 +166,11 @@ def create_article_buttons(outfit):
     return buttons
 
 
+def update_article_buttons_outfits(buttons, current_outfit):
+    for button in buttons:
+        button.outfit = current_outfit
+
+
 def main(screen):
     directory = os.path.dirname(__file__)
     asset_path = os.path.join(directory, '../Assets/')
@@ -190,7 +195,7 @@ def main(screen):
     current_outfit.load(default_outfit_file_path)
 
     # Undo History
-    history_size = 10
+    history_size = 4
     outfit_history = [copy.deepcopy(current_outfit)]
     history_position = 0
 
@@ -236,8 +241,10 @@ def main(screen):
             current_outfit.toggle_lock(current_layer_idx)
         elif action == Action.UNDO:
             current_outfit, history_position = undo_history(outfit_history, history_position)
+            update_article_buttons_outfits(buttons, current_outfit)
         elif action == Action.REDO:
             current_outfit, history_position = redo_history(outfit_history, history_position)
+            update_article_buttons_outfits(buttons, current_outfit)
         elif action == Action.RANDOM:
             current_outfit.randomize()
             history_position = add_history(outfit_history, history_position, history_size, current_outfit)
