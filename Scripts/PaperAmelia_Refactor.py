@@ -41,14 +41,14 @@ def handle_user_input(buttons):
                 return Action.EXIT
             # TODO: toggle article control overlay
             # change current layer preview
-            if event.key == pygame.K_DOWN:
+            if event.key == pygame.K_LEFT:
                 return Action.PREVIOUS_LAYER
-            if event.key == pygame.K_UP:
+            if event.key == pygame.K_RIGHT:
                 return Action.NEXT_LAYER
             # change current article preview
-            if event.key == pygame.K_LEFT:
+            if event.key == pygame.K_DOWN:
                 return Action.PREVIOUS_ARTICLE
-            if event.key == pygame.K_RIGHT:
+            if event.key == pygame.K_UP:
                 return Action.NEXT_ARTICLE
             # toggle article on current outfit
             if event.key == pygame.K_RETURN:

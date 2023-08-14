@@ -74,7 +74,6 @@ class ArticleButton(Button):
     def __init__(self, rect, callback, outfit, article, active=False, text='', icon_path=None):
         self.outfit = outfit
         self.article = article
-        self.rect = rect
         file_name = article.csv_data.split(',')[1]
         icon_path = os.path.join(str(ArticleButton.article_thumbs_file_path), file_name)
         if not os.path.isfile(icon_path):
@@ -84,6 +83,12 @@ class ArticleButton(Button):
 
     def caller(self):
         self.callback(self.outfit, self.article)
+
+    def draw(self, screen):
+        if self.active:
+            screen.blit(self.image, self.rect.topleft)
+            if self.article in self.outfit.articles:
+                pygame.draw.rect(screen, (0, 255, 0), self.rect, width=3)
 
     def generate_thumbnail(self, save_path):
         size = self.rect.size
