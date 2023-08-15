@@ -23,20 +23,14 @@ class Button(pygame.sprite.Sprite):
         Button.n_buttons += 1
         self.active = active
         self.rect = rect
-        self.text = text
-        self.text_surf = Button.font.render(self.text, True, pygame.Color('black'))
-        text_rect = self.text_surf.get_rect(center=self.rect.center)
-        self.text_pos = (text_rect.topleft[0] - self.rect.topleft[0], text_rect.topleft[1] - self.rect.topleft[1])
 
         self.icon_path = icon_path
         self.has_icon = self.icon_path is not None
         self.icon_sprite = None
 
-        self.org = Button.create_basic_button(self.rect)
-        self.org.blit(self.text_surf, self.text_pos)
+        self.org = Button.create_basic_button(self.rect, text=text)
 
-        self.hov = Button.create_basic_button(self.rect, mid_color=Button.hov_color)
-        self.hov.blit(self.text_surf, self.text_pos)
+        self.hov = Button.create_basic_button(self.rect, mid_color=Button.hov_color, text=text)
 
         if self.has_icon and self.active:
             self.load_icon()
@@ -81,7 +75,7 @@ class Button(pygame.sprite.Sprite):
             screen.blit(self.image, self.rect.topleft)
 
     @staticmethod
-    def create_basic_button(rect, high_color=None, mid_color=None, low_color=None):
+    def create_basic_button(rect, high_color=None, mid_color=None, low_color=None, text=''):
         if high_color is None:
             high_color = Button.high_color
         if mid_color is None:
@@ -98,6 +92,10 @@ class Button(pygame.sprite.Sprite):
         pygame.draw.polygon(b, high_color, [top_right, top_left, bottom_left])
         pygame.draw.polygon(b, low_color, [top_right, bottom_right, bottom_left])
         pygame.draw.rect(b, mid_color, mid_rect)
+        text_surf = Button.font.render(text, True, pygame.Color('black'))
+        text_rect = text_surf.get_rect(center=rect.center)
+        text_pos = (text_rect.topleft[0] - rect.topleft[0], text_rect.topleft[1] - rect.topleft[1])
+        b.blit(text_surf, text_pos)
         return b
 
 
@@ -107,10 +105,8 @@ class ToggleButton(Button):
         self.is_toggled = False
         self.is_toggleable = True
 
-        self.tog = Button.create_basic_button(self.rect, high_color=Button.low_color, low_color=Button.high_color)
-        self.tog.blit(self.text_surf, self.text_pos)
-        self.tog_hov = Button.create_basic_button(self.rect, high_color=Button.low_color, mid_color=Button.hov_color, low_color=Button.high_color)
-        self.tog_hov.blit(self.text_surf, self.text_pos)
+        self.tog = Button.create_basic_button(self.rect, high_color=Button.low_color, low_color=Button.high_color, text=text)
+        self.tog_hov = Button.create_basic_button(self.rect, high_color=Button.low_color, mid_color=Button.hov_color, low_color=Button.high_color, text=text)
 
         self.gray_out = pygame.Surface(self.rect.size)
         self.gray_out.set_alpha(128)
