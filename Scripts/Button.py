@@ -120,6 +120,16 @@ class ToggleButton(Button):
             self.tog.blit(self.icon_sprite, (0, 0))
             self.tog_hov.blit(self.icon_sprite, (0, 0))
 
+    def update(self, events):
+        if self.active:
+            pos = pygame.mouse.get_pos()
+            hit = self.rect.collidepoint(pos)
+            self.update_image()
+            for event in events:
+                if event.type == pygame.MOUSEBUTTONDOWN and hit:
+                    self.is_toggled = not self.is_toggled
+                    self.caller()
+
     def update_image(self, pos=None, hit=None):
         if pos is None:
             pos = pygame.mouse.get_pos()
