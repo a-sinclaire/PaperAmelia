@@ -91,7 +91,7 @@ class Button(pygame.sprite.Sprite):
         mid_rect = pygame.Rect(padding, padding, rect.w-padding*2, rect.h-padding*2)
         pygame.draw.polygon(b, high_color, [top_right, top_left, bottom_left])
         pygame.draw.polygon(b, low_color, [top_right, bottom_right, bottom_left])
-        pygame.draw.rect(b, mid_color, mid_rect)
+        pygame.draw.rect(b, mid_color, mid_rect, border_radius=padding)
         text_surf = Button.font.render(text, True, pygame.Color('black'))
         text_rect = text_surf.get_rect(center=rect.center)
         text_pos = (text_rect.topleft[0] - rect.topleft[0], text_rect.topleft[1] - rect.topleft[1])
@@ -161,7 +161,7 @@ class ArticleButton(ToggleButton):
         self.is_toggleable = not self.article.is_locked(self.outfit)
 
     def caller(self):
-        self.callback(self.outfit, self.article)
+        self.callback(article=self.article)
 
     def update(self, events):
         super().update(events)

@@ -7,7 +7,7 @@ import pygame
 import os
 import copy
 from Outfit import Article, Outfit, scale_img
-from Button import Button, ArticleButton
+from Button import Button, ArticleButton, ToggleButton
 from Undo import UndoBuffer
 from enum import Enum
 
@@ -53,12 +53,15 @@ class PaperAmeliaContext:
                                                                 Article.num_articles_per_layer[
                                                                     self.current_layer_id] - 1)
 
-    def toggle_article(self, outfit=None):
+    def toggle_article(self, outfit=None, article=None):
         if outfit is None:
             outfit = self.current_outfit
-        layer_articles = list(filter(lambda a: a.layer == self.current_layer_id, Article.articles))
-        outfit.toggle_article(layer_articles[self.current_article_ids[self.current_layer_id]])
+        if article is None:
+            layer_articles = list(filter(lambda a: a.layer == self.current_layer_id, Article.articles))
+            article = layer_articles[self.current_article_ids[self.current_layer_id]]
+        outfit.toggle_article(article)
         if outfit == self.current_outfit:
+            self.set_current_article_ids()
             print('save state after toggle')
             self.save_state()
 
@@ -83,6 +86,7 @@ class PaperAmeliaContext:
 
     def toggle_layer_lock(self):
         self.current_outfit.toggle_lock(self.current_layer_id)
+        self.save_state()
 
     def undo(self):
         self.current_outfit = self.undo_buffer.undo()
@@ -105,6 +109,7 @@ class PaperAmeliaContext:
     def load(self):
         self.current_outfit.load()
         self.set_current_article_ids()
+        self.save_state()
 
     def draw(self, screen, pos=(0, 0), outfit=None):
         if outfit is None:
@@ -185,11 +190,7 @@ def handle_user_input(paper_amelia, buttons):
     return Action.NONE
 
 
-def article_button_callback(outfit, article):
-    outfit.toggle_article(article)
-
-
-def create_article_buttons(outfit):
+def create_article_buttons(paper_amelia):
     buttons = pygame.sprite.Group()
     button_region_x = 1074
     button_region_y = 0
@@ -207,8 +208,9 @@ def create_article_buttons(outfit):
         if y_location >= button_region_y + button_region_h:
             y_location = button_region_y
             active = False
-        buttons.add(ArticleButton(pygame.Rect(x_location, y_location, button_w, button_h), article_button_callback,
-                                  outfit, article, active=active, text=''))
+        button_rect = pygame.Rect(x_location, y_location, button_w, button_h)
+        buttons.add(ArticleButton(button_rect, paper_amelia.toggle_article, paper_amelia.current_outfit, article,
+                                  active=active, text=''))
         x_location += button_w
 
     return buttons
@@ -242,11 +244,12 @@ def main(screen):
     paper_amelia = PaperAmeliaContext(default_outfit_file_path, max_undos=10)
 
     # Create Button
-    test_button = Button(pygame.Rect(0, 0, 60, 60), lambda: print('AHHH!'), active=True, text='',
+    test_button = ToggleButton(pygame.Rect(0, 0, 60, 60), lambda: print('AHHH!'), active=True, text='hello',
                          icon_path=os.path.join(asset_path, 'test_icon.png'))
     ArticleButton.article_thumbs_file_path = os.path.join(asset_path, 'Article_Thumbnails/')
     print(f'path: {ArticleButton.article_thumbs_file_path}')
-    buttons = create_article_buttons(paper_amelia.current_outfit)
+    buttons = create_article_buttons(paper_amelia)
+    # buttons.add(test_button)
 
     action = Action.NONE
     while action is not Action.EXIT:
