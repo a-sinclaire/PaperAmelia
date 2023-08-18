@@ -17,6 +17,9 @@ Action = Enum('Action', ['NONE', 'EXIT', 'PREVIOUS_LAYER', 'NEXT_LAYER', 'PREVIO
 
 
 class PaperAmeliaContext:
+    screen_width = 1274
+    screen_height = 825
+
     def __init__(self, default_outfit_file_path=None, max_undos=10):
         self.undo_buffer = UndoBuffer(max_undos=max_undos)
 
@@ -192,20 +195,23 @@ def handle_user_input(paper_amelia, buttons):
 
 def create_article_buttons(paper_amelia):
     buttons = pygame.sprite.Group()
-    button_region_x = 1074
-    button_region_y = 0
-    button_region_w = 200
-    button_region_h = 800
-    button_w = 100
-    button_h = 100
+    padding = 10
+    articles_x = 4
+    articles_y = 4
+    button_region_x = (PaperAmeliaContext.screen_width // 2) + padding
+    button_region_y = padding
+    button_region_w = (PaperAmeliaContext.screen_width // 2) - padding*2
+    button_region_h = PaperAmeliaContext.screen_height - padding*2
+    button_w = button_region_w // articles_x
+    button_h = button_region_h // articles_y
     x_location = button_region_x
     y_location = button_region_y
     active = True
     for article in Article.articles:
-        if x_location >= button_region_x + button_region_w:
+        if x_location >= button_region_x + button_region_w - 1:
             x_location = button_region_x
             y_location += button_h
-        if y_location >= button_region_y + button_region_h:
+        if y_location >= button_region_y + button_region_h - 1:
             y_location = button_region_y
             active = False
         button_rect = pygame.Rect(x_location, y_location, button_w, button_h)
@@ -225,6 +231,7 @@ def main(screen):
     directory = os.path.dirname(__file__)
     asset_path = os.path.join(directory, '../Assets/')
     csv_file_path = os.path.join(asset_path, 'articles.csv')
+    # csv_file_path = os.path.join(asset_path, 'directory.csv')
     background_file_path = os.path.join(asset_path, 'BACKGROUND.png')
     default_outfit_file_path = os.path.join(asset_path, 'default_outfit.outfit')
     # default_outfit_file_path = 'C:/Users/lader/Desktop/my_outfit.csv'
@@ -249,7 +256,8 @@ def main(screen):
     ArticleButton.article_thumbs_file_path = os.path.join(asset_path, 'Article_Thumbnails/')
     print(f'path: {ArticleButton.article_thumbs_file_path}')
     buttons = create_article_buttons(paper_amelia)
-    # buttons.add(test_button)
+    buttons.add(Button(pygame.Rect(0, 0, 60, 60), paper_amelia.previous_layer, active=True, text='<'))
+    buttons.add(Button(pygame.Rect(60, 0, 60, 60), paper_amelia.next_layer, active=True, text='>'))
 
     action = Action.NONE
     while action is not Action.EXIT:
@@ -277,7 +285,7 @@ def main(screen):
 
 
 if __name__ == '__main__':
-    screen = init_pygame(1274, 825)  # 637, 825
+    screen = init_pygame(PaperAmeliaContext.screen_width, PaperAmeliaContext.screen_height)  # 637, 825
     clock = pygame.time.Clock()
 
     main(screen)

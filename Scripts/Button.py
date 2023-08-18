@@ -42,8 +42,9 @@ class Button(pygame.sprite.Sprite):
         if self.icon_sprite is not None:
             return
         self.icon_sprite = pygame.image.load(self.icon_path)
-        self.org.blit(self.icon_sprite, (0, 0))
-        self.hov.blit(self.icon_sprite, (0, 0))
+        sprite_rect = self.icon_sprite.get_rect(center=self.rect.center)
+        self.org.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
+        self.hov.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
         print(f'LOADED: {self.icon_path}')
 
     def toggle_active(self):
@@ -113,8 +114,9 @@ class ToggleButton(Button):
         self.gray_out.fill((0, 0, 0))
 
         if self.icon_sprite is not None:
-            self.tog.blit(self.icon_sprite, (0, 0))
-            self.tog_hov.blit(self.icon_sprite, (0, 0))
+            sprite_rect = self.icon_sprite.get_rect(center=self.rect.center)
+            self.tog.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
+            self.tog_hov.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
 
     def update(self, events):
         if self.active:
@@ -151,12 +153,13 @@ class ArticleButton(ToggleButton):
     def __init__(self, rect, callback, outfit, article, active=False, text=''):
         file_name = article.csv_data.split(',')[1]
         icon_path = os.path.join(str(ArticleButton.article_thumbs_file_path), file_name)
+        self.rect = rect
+        self.outfit = outfit
+        self.article = article
         if not os.path.isfile(icon_path):
             self.generate_thumbnail(icon_path)
 
         super().__init__(rect, callback, active, text, icon_path)
-        self.outfit = outfit
-        self.article = article
         self.is_toggled = self.article in self.outfit.articles
         self.is_toggleable = not self.article.is_locked(self.outfit)
 
