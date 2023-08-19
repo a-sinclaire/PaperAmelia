@@ -29,23 +29,26 @@ class Button(pygame.sprite.Sprite):
         self.icon_sprite = None
 
         self.org = Button.create_basic_button(self.rect, text=text)
-
         self.hov = Button.create_basic_button(self.rect, mid_color=Button.hov_color, text=text)
 
         if self.has_icon and self.active:
             self.load_icon()
+        if self.has_icon and self.icon_sprite is not None:
+            self.blit_sprite(self.org)
+            self.blit_sprite(self.hov)
 
         self.image = self.org
         self.callback = callback
 
     def load_icon(self):
-        if self.icon_sprite is not None:
-            return
-        self.icon_sprite = pygame.image.load(self.icon_path)
+        if self.has_icon and self.icon_sprite is None:
+            self.icon_sprite = pygame.image.load(self.icon_path)
+            print(f'LOADED: {self.icon_path}')
+
+    def blit_sprite(self, surface):
         sprite_rect = self.icon_sprite.get_rect(center=self.rect.center)
-        self.org.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
-        self.hov.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
-        print(f'LOADED: {self.icon_path}')
+        surface.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
+        surface.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
 
     def toggle_active(self):
         self.active = not self.active
@@ -70,6 +73,10 @@ class Button(pygame.sprite.Sprite):
             for event in events:
                 if event.type == pygame.MOUSEBUTTONDOWN and hit:
                     self.caller()
+        if self.has_icon and self.icon_sprite is None:
+            self.load_icon()
+            self.blit_sprite(self.org)
+            self.blit_sprite(self.hov)
 
     def draw(self, screen):
         if self.active:
@@ -103,6 +110,7 @@ class Button(pygame.sprite.Sprite):
 class ToggleButton(Button):
     def __init__(self, rect, callback, active=False, text='', icon_path=None):
         super().__init__(rect, callback, active, text, icon_path)
+
         self.is_toggled = False
         self.is_toggleable = True
 
@@ -113,10 +121,11 @@ class ToggleButton(Button):
         self.gray_out.set_alpha(128)
         self.gray_out.fill((0, 0, 0))
 
-        if self.icon_sprite is not None:
-            sprite_rect = self.icon_sprite.get_rect(center=self.rect.center)
-            self.tog.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
-            self.tog_hov.blit(self.icon_sprite, (sprite_rect[0] - self.rect[0], sprite_rect[1] - self.rect[1]))
+        if self.has_icon and self.active:
+            self.load_icon()
+        if self.has_icon and self.icon_sprite is not None:
+            self.blit_sprite(self.tog)
+            self.blit_sprite(self.tog_hov)
 
     def update(self, events):
         if self.active:
@@ -127,6 +136,12 @@ class ToggleButton(Button):
                 if event.type == pygame.MOUSEBUTTONDOWN and hit:
                     self.is_toggled = not self.is_toggled
                     self.caller()
+        if self.has_icon and self.icon_sprite is None:
+            self.load_icon()
+            self.blit_sprite(self.org)
+            self.blit_sprite(self.hov)
+            self.blit_sprite(self.tog)
+            self.blit_sprite(self.tog_hov)
 
     def update_image(self, pos=None, hit=None):
         if pos is None:
@@ -166,10 +181,11 @@ class ArticleButton(ToggleButton):
     def caller(self):
         self.callback(article=self.article)
 
-    def update(self, events):
+    def update(self, events, paper_amelia):
         super().update(events)
         self.is_toggled = self.article in self.outfit.articles
         self.is_toggleable = not self.article.is_locked(self.outfit)
+        self.active = self.article.layer == paper_amelia.current_layer_id
 
     def generate_thumbnail(self, save_path):
         size = self.rect.size

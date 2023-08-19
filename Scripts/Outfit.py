@@ -50,6 +50,7 @@ class Article:
     def is_locked(self, outfit):
         return outfit.locked_layers[self.layer]
 
+
     @staticmethod
     def search(csv_data):
         for article in Article.articles:

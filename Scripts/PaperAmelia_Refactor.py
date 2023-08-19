@@ -132,10 +132,13 @@ def init_pygame(width, height):
     return pygame.display.set_mode((width, height))  # return screen
 
 
-def handle_user_input(paper_amelia, buttons):
+def handle_user_input(paper_amelia, article_layer_buttons, always_active_buttons):
     events = pygame.event.get()
-    # check for mouse hover
-    for button in buttons:
+
+    for article_buttons in article_layer_buttons:
+        for button in article_buttons:
+            button.update(events, paper_amelia)
+    for button in always_active_buttons:
         button.update(events)
 
     for event in events:
@@ -176,10 +179,10 @@ def handle_user_input(paper_amelia, buttons):
             # undo/redo action
             if event.key == pygame.K_z and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 paper_amelia.undo()
-                update_article_buttons_outfits(buttons, paper_amelia.current_outfit)
+                update_article_buttons_outfits(article_layer_buttons, paper_amelia.current_outfit)
             if event.key == pygame.K_y and pygame.key.get_mods() & pygame.KMOD_CTRL:
                 paper_amelia.redo()
-                update_article_buttons_outfits(buttons, paper_amelia.current_outfit)
+                update_article_buttons_outfits(article_layer_buttons, paper_amelia.current_outfit)
             # save a screenshot
             # toggle help overlay
             # toggle stats overlay
@@ -194,37 +197,51 @@ def handle_user_input(paper_amelia, buttons):
 
 
 def create_article_buttons(paper_amelia):
-    buttons = pygame.sprite.Group()
+    # buttons = pygame.sprite.Group()
+    arrow_button_w = 40
+
     padding = 10
     articles_x = 4
     articles_y = 4
-    button_region_x = (PaperAmeliaContext.screen_width // 2) + padding
+    button_region_x = (PaperAmeliaContext.screen_width // 2) + padding + arrow_button_w
     button_region_y = padding
-    button_region_w = (PaperAmeliaContext.screen_width // 2) - padding*2
+    button_region_w = (PaperAmeliaContext.screen_width // 2) - padding*2 - arrow_button_w*2
     button_region_h = PaperAmeliaContext.screen_height - padding*2
     button_w = button_region_w // articles_x
     button_h = button_region_h // articles_y
-    x_location = button_region_x
-    y_location = button_region_y
-    active = True
-    for article in Article.articles:
-        if x_location >= button_region_x + button_region_w - 1:
-            x_location = button_region_x
-            y_location += button_h
-        if y_location >= button_region_y + button_region_h - 1:
-            y_location = button_region_y
-            active = False
-        button_rect = pygame.Rect(x_location, y_location, button_w, button_h)
-        buttons.add(ArticleButton(button_rect, paper_amelia.toggle_article, paper_amelia.current_outfit, article,
-                                  active=active, text=''))
-        x_location += button_w
-
-    return buttons
 
 
-def update_article_buttons_outfits(buttons, current_outfit):
-    for button in buttons:
-        button.outfit = current_outfit
+    always_active_buttons = []
+    always_active_buttons.append(Button(pygame.Rect(button_region_x-arrow_button_w, button_region_y, arrow_button_w, button_region_h), paper_amelia.previous_layer, active=True, text='<'))
+    always_active_buttons.append(Button(pygame.Rect(button_region_x+button_region_w, button_region_y, arrow_button_w, button_region_h), paper_amelia.next_layer, active=True, text='>'))
+
+
+    article_layer_buttons = []
+    for layer_id in range(Article.num_layers):
+        x_location = button_region_x
+        y_location = button_region_y
+        active = paper_amelia.current_layer_id == layer_id
+        layer_articles = list(filter(lambda a: a.layer == layer_id, Article.articles))
+        article_buttons = []
+        for article in layer_articles:
+            if x_location >= button_region_x + button_region_w - 1:
+                x_location = button_region_x
+                y_location += button_h
+            if y_location >= button_region_y + button_region_h - 1:
+                y_location = button_region_y
+                active = False
+            button_rect = pygame.Rect(x_location, y_location, button_w, button_h)
+            article_buttons.append(ArticleButton(button_rect, paper_amelia.toggle_article, paper_amelia.current_outfit, article,
+                                      active=active, text=''))
+            x_location += button_w
+        article_layer_buttons.append(article_buttons)
+    return article_layer_buttons, always_active_buttons
+
+
+def update_article_buttons_outfits(article_layer_buttons, current_outfit):
+    for article_buttons in article_layer_buttons:
+        for button in article_buttons:
+            button.outfit = current_outfit
 
 
 def main(screen):
@@ -255,13 +272,11 @@ def main(screen):
                          icon_path=os.path.join(asset_path, 'test_icon.png'))
     ArticleButton.article_thumbs_file_path = os.path.join(asset_path, 'Article_Thumbnails/')
     print(f'path: {ArticleButton.article_thumbs_file_path}')
-    buttons = create_article_buttons(paper_amelia)
-    buttons.add(Button(pygame.Rect(0, 0, 60, 60), paper_amelia.previous_layer, active=True, text='<'))
-    buttons.add(Button(pygame.Rect(60, 0, 60, 60), paper_amelia.next_layer, active=True, text='>'))
+    article_layer_buttons, always_active_buttons = create_article_buttons(paper_amelia)
 
     action = Action.NONE
     while action is not Action.EXIT:
-        action = handle_user_input(paper_amelia, buttons)
+        action = handle_user_input(paper_amelia, article_layer_buttons, always_active_buttons)
 
         # update viewer outfit
         paper_amelia.remove_all_articles(outfit=paper_amelia.viewer_outfit)
@@ -275,7 +290,11 @@ def main(screen):
         paper_amelia.draw(screen, (637, 0), paper_amelia.viewer_outfit)
         # TODO: draw overlay
         # draw buttons
-        for button in buttons:
+        for idx, article_buttons in enumerate(article_layer_buttons):
+            if idx == paper_amelia.current_layer_id:
+                for button in article_buttons:
+                    button.draw(screen)
+        for button in always_active_buttons:
             button.draw(screen)
 
         pygame.display.update()
