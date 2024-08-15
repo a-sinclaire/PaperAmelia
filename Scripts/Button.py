@@ -91,14 +91,17 @@ class Button(pygame.sprite.Sprite):
         if low_color is None:
             low_color = Button.low_color
         b = pygame.Surface(rect.size)
+        square_dim = min(rect.w, rect.h)//2
         top_left = (0, 0)
         top_right = (rect.topright[0] - rect.topleft[0], 0)
         bottom_left = (0, rect.bottomleft[1] - rect.topleft[1])
+        middle_top_right = (top_right[0]-square_dim, square_dim)
+        middle_bottom_left = (square_dim, bottom_left[1] - square_dim)
         bottom_right = (top_right[0], bottom_left[1])
         padding = 3
         mid_rect = pygame.Rect(padding, padding, rect.w-padding*2, rect.h-padding*2)
-        pygame.draw.polygon(b, high_color, [top_right, top_left, bottom_left])
-        pygame.draw.polygon(b, low_color, [top_right, bottom_right, bottom_left])
+        pygame.draw.polygon(b, high_color, [top_left, top_right, middle_top_right, middle_bottom_left, bottom_left])
+        pygame.draw.polygon(b, low_color, [top_right, bottom_right, bottom_left, middle_bottom_left, middle_top_right])
         pygame.draw.rect(b, mid_color, mid_rect, border_radius=padding)
         text_surf = Button.font.render(text, True, pygame.Color('black'))
         text_rect = text_surf.get_rect(center=rect.center)

@@ -268,11 +268,12 @@ def main(screen):
     paper_amelia = PaperAmeliaContext(default_outfit_file_path, max_undos=10)
 
     # Create Button
-    test_button = ToggleButton(pygame.Rect(0, 0, 60, 60), lambda: print('AHHH!'), active=True, text='hello',
+    test_button = Button(pygame.Rect(0, 0, 60, 60), paper_amelia.remove_all_articles, active=True, text='doze',
                          icon_path=os.path.join(asset_path, 'test_icon.png'))
     ArticleButton.article_thumbs_file_path = os.path.join(asset_path, 'Article_Thumbnails/')
     print(f'path: {ArticleButton.article_thumbs_file_path}')
     article_layer_buttons, always_active_buttons = create_article_buttons(paper_amelia)
+    always_active_buttons.append(test_button)
 
     action = Action.NONE
     while action is not Action.EXIT:
